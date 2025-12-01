@@ -1,7 +1,7 @@
 from scanners.sql_scanner import scan_sql_injection
 from scanners.xss_scanner import scan_xss
 from scanners.csrf_scanner import check_csrf_protection
-from ssrf.scanner import scan_ssrf
+from scanners.ssrf_scanner import scan_ssrf
 
 
 def ai_analysis(vulnerabilities: list[str]) -> None:
