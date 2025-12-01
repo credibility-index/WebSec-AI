@@ -1,7 +1,7 @@
-from sql_scanner import scan_sql_injection
-from xss_scanner import scan_xss
-from csrf_scanner import check_csrf_protection
-from ssrf_scanner import scan_ssrf
+from scanners.sql_scanner import scan_sql_injection
+from scanners.xss_scanner import scan_xss
+from scanners.csrf_scanner import check_csrf_protection
+from ssrf.scanner import scan_ssrf
 
 
 def ai_analysis(vulnerabilities: list[str]) -> None:
@@ -67,6 +67,54 @@ def main():
         print("Detected vulnerabilities:", ", ".join(vulnerabilities))
     else:
         print("No vulnerabilities detected by current checks.")
+
+    # Генерация отчетов
+    print("\nGenerating reports...")
+
+    report_en = f"""
+# WebSecAI Scan Report (EN)
+
+## Target
+- URL: {target_url}
+
+## Summary
+- Detected vulnerabilities: {", ".join(vulnerabilities) if vulnerabilities else "None"}
+
+## Details
+- SQL Injection: {"detected" if "SQL Injection" in vulnerabilities else "not detected"}
+- XSS: {"detected" if "XSS" in vulnerabilities else "not detected"}
+- CSRF: {"detected" if "CSRF" in vulnerabilities else "not detected"}
+- SSRF: {"detected" if "SSRF" in vulnerabilities else "not detected"}
+
+## AI Analysis
+(See console output for AI Analysis Report.)
+""".strip() + "\n"
+
+    report_ru = f"""
+# Отчёт WebSecAI (RU)
+
+## Цель
+- URL: {target_url}
+
+## Сводка
+- Обнаруженные уязвимости: {", ".join(vulnerabilities) if vulnerabilities else "нет"}
+
+## Детали
+- SQL Injection: {"обнаружен" if "SQL Injection" in vulnerabilities else "не обнаружен"}
+- XSS: {"обнаружен" if "XSS" in vulnerabilities else "не обнаружен"}
+- CSRF: {"обнаружен" if "CSRF" in vulnerabilities else "не обнаружен"}
+- SSRF: {"обнаружен" if "SSRF" in vulnerabilities else "не обнаружен"}
+
+## AI-анализ
+(Подробный AI Analysis Report см. в выводе консоли.)
+""".strip() + "\n"
+
+    with open("report_en.md", "w", encoding="utf-8") as f:
+        f.write(report_en)
+    with open("report_ru.md", "w", encoding="utf-8") as f:
+        f.write(report_ru)
+
+    print("Reports saved as report_en.md and report_ru.md")
 
 
 if __name__ == "__main__":
