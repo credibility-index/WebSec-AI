@@ -1,30 +1,46 @@
+import os
+from openai import OpenAI
+
 from scanners.sql_scanner import scan_sql_injection
 from scanners.xss_scanner import scan_xss
 from scanners.csrf_scanner import check_csrf_protection
 from scanners.ssrf_scanner import scan_ssrf
 
+# Клиент OpenRouter (ключ должен быть в переменной окружения OPENROUTER_API_KEY)
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+)
+
 
 def ai_analysis(vulnerabilities: list[str]) -> None:
     """
-    Простая AI-имитация: расставляем приоритеты по типу уязвимости.
-    Позже сюда можно подключить LLM.
+    AI-анализ уязвимостей через OpenRouter (LLM).
+    Берёт список типов уязвимостей и даёт краткий приоритизированный вывод.
     """
     print("\n=== AI Analysis Report ===")
+
     if not vulnerabilities:
         print("[AI] Существенных уязвимостей не обнаружено (по текущим проверкам).")
         return
 
-    for vuln in vulnerabilities:
-        if vuln == "SQL Injection":
-            print("[AI] SQL Injection: CRITICAL. Возможен доступ к БД, требуется немедленное исправление.")
-        elif vuln == "XSS":
-            print("[AI] XSS: HIGH. Риск кражи сессий и атак на пользователей.")
-        elif vuln == "CSRF":
-            print("[AI] CSRF: MEDIUM. Проверьте критичные формы (аутентификация, переводы, изменение данных).")
-        elif vuln == "SSRF":
-            print("[AI] SSRF: HIGH. Возможен доступ к внутренним сервисам и метаданным облака.")
-        else:
-            print(f"[AI] {vuln}: обнаружено, требуется дополнительный анализ.")
+    vulns_str = ", ".join(vulnerabilities)
+    prompt = (
+        "You are a senior web penetration tester. "
+        f"Detected vulnerabilities: {vulns_str}. "
+        "Prioritize them by risk and give short remediation advice. "
+        "Answer in concise English, max 5 bullet points."
+    )
+
+    try:
+        resp = client.chat.completions.create(
+            model="meta-llama/llama-3.1-8b-instruct:free",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = resp.choices[0].message.content.strip()
+        print(text)
+    except Exception as exc:
+        print(f"[AI] Ошибка при обращении к OpenRouter: {exc}")
 
 
 def main():
