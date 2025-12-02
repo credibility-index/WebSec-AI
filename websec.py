@@ -5,6 +5,7 @@ from scanners.sql_scanner import scan_sql_injection
 from scanners.xss import scan_xss
 from scanners.csrf_scanner import check_csrf_protection
 from scanners.ssrf_scanner import scan_ssrf
+from scanners.network_scanner import scan_network_segmentation
 
 
 # Инициализация клиента OpenRouter с обязательным HTTP-Referer для идентификации приложения
@@ -92,7 +93,14 @@ def main():
     ai_report = ai_analysis(vulnerabilities)
     print("\n=== AI Analysis Report ===")
     print(ai_report)
-
+    print("\nScanning Network Segmentation...")
+net_issues = scan_network_segmentation(target_url)
+if net_issues:
+    vulnerabilities.extend([f"Network: {issue}" for issue in net_issues])
+    print("[!] Network segmentation issues found:", ", ".join(net_issues))
+else:
+    print("[+] Network segmentation looks OK")
+    
     print("\n=== Summary ===")
     if vulnerabilities:
         print("Detected vulnerabilities:", ", ".join(vulnerabilities))
