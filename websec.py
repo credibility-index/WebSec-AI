@@ -2,7 +2,7 @@ import os
 from openai import OpenAI
 
 from scanners.sql_scanner import scan_sql_injection
-from scanners.xss import scan_xss
+from scanners.xss_scanner import scan_xss
 from scanners.csrf_scanner import check_csrf_protection
 from scanners.ssrf_scanner import scan_ssrf
 
@@ -13,16 +13,13 @@ client = OpenAI(
 )
 
 
-def ai_analysis(vulnerabilities: list[str]) -> None:
+def ai_analysis(vulnerabilities: list[str]) -> str:
     """
     AI-анализ уязвимостей через OpenRouter (LLM).
-    Берёт список типов уязвимостей и даёт краткий приоритизированный вывод.
+    Возвращает текст отчёта AI.
     """
-    print("\n=== AI Analysis Report ===")
-
     if not vulnerabilities:
-        print("[AI] Существенных уязвимостей не обнаружено (по текущим проверкам).")
-        return
+        return "[AI] Существенных уязвимостей не обнаружено (по текущим проверкам)."
 
     vulns_str = ", ".join(vulnerabilities)
     prompt = (
@@ -37,10 +34,9 @@ def ai_analysis(vulnerabilities: list[str]) -> None:
             model="meta-llama/llama-3.1-8b-instruct:free",
             messages=[{"role": "user", "content": prompt}],
         )
-        text = resp.choices[0].message.content.strip()
-        print(text)
+        return resp.choices[0].message.content.strip()
     except Exception as exc:
-        print(f"[AI] Ошибка при обращении к OpenRouter: {exc}")
+        return f"[AI] Ошибка при обращении к OpenRouter: {exc}"
 
 
 def main():
@@ -75,7 +71,9 @@ def main():
 
     # AI-оценка
     print("\nRunning AI Analysis...")
-    ai_analysis(vulnerabilities)
+    ai_report = ai_analysis(vulnerabilities)
+    print("\n=== AI Analysis Report ===")
+    print(ai_report)
 
     # Краткий итог
     print("\n=== Summary ===")
@@ -103,7 +101,7 @@ def main():
 - SSRF: {"detected" if "SSRF" in vulnerabilities else "not detected"}
 
 ## AI Analysis
-(See console output for AI Analysis Report.)
+{ai_report}
 """.strip() + "\n"
 
     report_ru = f"""
@@ -122,7 +120,7 @@ def main():
 - SSRF: {"обнаружен" if "SSRF" in vulnerabilities else "не обнаружен"}
 
 ## AI-анализ
-(Подробный AI Analysis Report см. в выводе консоли.)
+{ai_report}
 """.strip() + "\n"
 
     with open("report_en.md", "w", encoding="utf-8") as f:
