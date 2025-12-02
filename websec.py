@@ -2,14 +2,19 @@ import os
 from openai import OpenAI
 
 from scanners.sql_scanner import scan_sql_injection
-from scanners.xss import scan_xss          
+from scanners.xss import scan_xss
 from scanners.csrf_scanner import check_csrf_protection
 from scanners.ssrf_scanner import scan_ssrf
 
-# Клиент OpenRouter (ключ должен быть в переменной окружения OPENROUTER_API_KEY)
+
+# Инициализация клиента OpenRouter с обязательным HTTP-Referer для идентификации приложения
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=os.getenv("OPENROUTER_API_KEY"),
+    default_headers={
+        "HTTP-Referer": "https://github.com/yourusername/websecai",  # Замените на ваш публичный URL
+        "X-Title": "WebSecAI Scanner"
+    }
 )
 
 
@@ -23,7 +28,7 @@ def ai_analysis(vulnerabilities: list[str]) -> str:
 
     vulns_str = ", ".join(vulnerabilities)
     prompt = (
-        "You are a senior web penetration tester. "
+        "You are a senior web penetration tester specialized in OWASP Top 10 vulnerabilities. "
         f"Detected vulnerabilities: {vulns_str}. "
         "Prioritize them by risk and give short remediation advice. "
         "Answer in concise English, max 5 bullet points."
@@ -32,7 +37,12 @@ def ai_analysis(vulnerabilities: list[str]) -> str:
     try:
         resp = client.chat.completions.create(
             model="meta-llama/llama-3.1-8b-instruct:free",
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": "You are a senior web pentester with OWASP expertise."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,
+            max_tokens=500,
         )
         return resp.choices[0].message.content.strip()
     except Exception as exc:
@@ -48,41 +58,34 @@ def main():
 
     vulnerabilities: list[str] = []
 
-    # SQL Injection
     print("\nScanning for SQL Injection...")
     if scan_sql_injection(target_url):
         vulnerabilities.append("SQL Injection")
 
-    # XSS
     print("\nScanning for XSS...")
     if scan_xss(target_url):
         vulnerabilities.append("XSS")
 
-    # CSRF
     print("\nScanning for CSRF...")
-    csrf_result = check_csrf_protection(target_url)
-    if csrf_result:
+    # Предполагается, что функция возвращает True, если уязвимость обнаружена (то есть защита отсутствует)
+    if check_csrf_protection(target_url):
         vulnerabilities.append("CSRF")
 
-    # SSRF
     print("\nScanning for SSRF...")
     if scan_ssrf(target_url):
         vulnerabilities.append("SSRF")
 
-    # AI-оценка
     print("\nRunning AI Analysis...")
     ai_report = ai_analysis(vulnerabilities)
     print("\n=== AI Analysis Report ===")
     print(ai_report)
 
-    # Краткий итог
     print("\n=== Summary ===")
     if vulnerabilities:
         print("Detected vulnerabilities:", ", ".join(vulnerabilities))
     else:
         print("No vulnerabilities detected by current checks.")
 
-    # Генерация отчетов
     print("\nGenerating reports...")
 
     report_en = f"""
@@ -133,3 +136,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
