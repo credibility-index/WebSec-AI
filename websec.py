@@ -34,15 +34,10 @@ def ai_analysis(vulnerabilities: list[str]) -> str:
         "Answer in concise English, max 5 bullet points."
     )
 
-    try:
+        try:
         resp = client.chat.completions.create(
-            model="meta-llama/llama-3.1-8b-instruct:free",
-            messages=[
-                {"role": "system", "content": "You are a senior web pentester with OWASP expertise."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.1,
-            max_tokens=500,
+            model="arcee-ai/trinity-mini:free",
+            messages=[{"role": "user", "content": prompt}],
         )
         return resp.choices[0].message.content.strip()
     except Exception as exc:
