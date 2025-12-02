@@ -18,16 +18,19 @@ client = OpenAI(
 )
 
 
-def ai_analysis(vulnerabilities: list[str]) -> str:
+def ai_analysis(vulnerabilities: list[str]) -> tuple[str, str]:
     """
-    AI-анализ уязвимостей через OpenRouter (LLM).
-    Возвращает текст отчёта AI.
+    Возвращает два текста:
+    - ai_report_en: анализ на английском
+    - ai_report_ru: тот же анализ, переведённый на русский
     """
     if not vulnerabilities:
-        return "[AI] Существенных уязвимостей не обнаружено (по текущим проверкам)."
+        en = "[AI] No significant vulnerabilities detected based on current checks."
+        ru = "[AI] Существенных уязвимостей не обнаружено по текущим проверкам."
+        return en, ru
 
     vulns_str = ", ".join(vulnerabilities)
-    prompt = (
+    base_prompt = (
         "You are a senior web penetration tester specialized in OWASP Top 10 vulnerabilities. "
         f"Detected vulnerabilities: {vulns_str}. "
         "Prioritize them by risk and give short remediation advice. "
@@ -35,15 +38,29 @@ def ai_analysis(vulnerabilities: list[str]) -> str:
     )
 
     try:
-        resp = client.chat.completions.create(
+        resp_en = client.chat.completions.create(
             model="arcee-ai/trinity-mini:free",
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": base_prompt}],
         )
-        return resp.choices[0].message.content.strip()
+        ai_report_en = resp_en.choices[0].message.content.strip()
+
+        resp_ru = client.chat.completions.create(
+            model="arcee-ai/trinity-mini:free",
+            messages=[{
+                "role": "user",
+                "content": (
+                    "Translate the following security analysis into Russian, "
+                    "keep it concise and in bullet points:\n\n"
+                    f"{ai_report_en}"
+                ),
+            }],
+        )
+        ai_report_ru = resp_ru.choices[0].message.content.strip()
+        return ai_report_en, ai_report_ru
+
     except Exception as exc:
-        return f"[AI] Ошибка при обращении к OpenRouter: {exc}"
-
-
+        msg = f"[AI] Ошибка при обращении к OpenRouter: {exc}"
+        return msg, msg
 
 def main():
     print("=== WebSecAI: AI-Powered Web Application Vulnerability Scanner ===")
