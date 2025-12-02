@@ -1,0 +1,35 @@
+version: '3.8'
+services:
+  dvwa-web:
+    image: vulnerables/web-dvwa:latest
+    networks:
+      - dmz
+    ports:
+      - "8080:80"
+    environment:
+      MYSQL_HOST: db-internal
+
+  db-internal:
+    image: mysql:5.7
+    networks:
+      - internal
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+
+  firewall:
+    image: ubuntu:20.04
+    networks:
+      - dmz
+      - internal
+      - guest
+    cap_add:
+      - NET_ADMIN
+    command: tail -f /dev/null
+
+networks:
+  dmz:
+    driver: bridge
+  internal:
+    driver: bridge  
+  guest:
+    driver: bridge
