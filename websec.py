@@ -34,7 +34,7 @@ def ai_analysis(vulnerabilities: list[str]) -> str:
         "Answer in concise English, max 5 bullet points."
     )
 
-        try:
+    try:
         resp = client.chat.completions.create(
             model="arcee-ai/trinity-mini:free",
             messages=[{"role": "user", "content": prompt}],
@@ -42,6 +42,7 @@ def ai_analysis(vulnerabilities: list[str]) -> str:
         return resp.choices[0].message.content.strip()
     except Exception as exc:
         return f"[AI] Ошибка при обращении к OpenRouter: {exc}"
+
 
 
 def main():
