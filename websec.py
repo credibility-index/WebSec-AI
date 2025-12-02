@@ -2,7 +2,7 @@ import os
 from openai import OpenAI
 
 from scanners.sql_scanner import scan_sql_injection
-from scanners.xss_scanner import scan_xss
+from scanners.xss import scan_xss          
 from scanners.csrf_scanner import check_csrf_protection
 from scanners.ssrf_scanner import scan_ssrf
 
