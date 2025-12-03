@@ -7,3 +7,5 @@ lxml
 openai
 
 pytest==7.4.0
+
+streamlit
