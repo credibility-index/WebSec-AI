@@ -6,7 +6,7 @@ import os
 # Добавляем корень проекта в путь для импорта
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from main import ai_analysis  # основной файл
+from websec.py import ai_analysis  # основной файл
 from scanners.sql_scanner import scan_sql_injection
 from scanners.xss import scan_xss
 from scanners.csrf_scanner import check_csrf_protection
