@@ -17,7 +17,7 @@ AI-powered web vulnerability scanner designed to automatically detect common sec
 ## 📸 Демо
 
 **Streamlit UI:**
-![Streamlit demo](<img width="970" height="806" alt="image" src="https://github.com/user-attachments/assets/a9458361-4bad-4692-99e8-51c801aac68b" />)
+![Streamlit demo](https://github.com/user-attachments/assets/a9458361-4bad-4692-99e8-51c801aac68b =800x600)
 
 **Консоль + отчеты:**
 
