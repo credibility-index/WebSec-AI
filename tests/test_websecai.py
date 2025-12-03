@@ -11,6 +11,7 @@ from scanners.sql_scanner import scan_sql_injection
 from scanners.xss import scan_xss
 from scanners.csrf_scanner import check_csrf_protection
 from scanners.ssrf_scanner import scan_ssrf
+from scanners.network_scanner import scan_network_segmentation
 
 
 class TestWebSecAI(unittest.TestCase):
@@ -90,6 +91,19 @@ class TestWebSecAI(unittest.TestCase):
 
         result = scan_ssrf("http://test.com")
         self.assertFalse(result)
+
+    def test_network_segmentation_localhost(self):
+        """Network scan не должен падать на localhost и возвращает список"""
+        issues = scan_network_segmentation("http://127.0.0.1")
+        self.assertIsInstance(issues, list)
+
+    @patch('scanners.network_scanner.get_open_ports')
+    def test_network_segmentation_detects_ssh(self, mock_get_open_ports):
+        """Network scan помечает SSH как рискованную конфигурацию"""
+        mock_get_open_ports.return_value = ["22/tcp"]
+
+        issues = scan_network_segmentation("http://192.168.0.10")
+        self.assertTrue(any("SSH exposed in public zone" in i for i in issues))
 
 
 if __name__ == '__main__':
