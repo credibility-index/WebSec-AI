@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WebSecAI – AI-Powered Web Vulnerability Scanner</title>
+  <meta name="description" content="WebSecAI is an AI-powered web application vulnerability scanner that detects SQLi, XSS, CSRF, SSRF and network segmentation issues with AI-generated reports in English and Russian.">
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #111827, #020617);
+      color: #e5e7eb;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 16px 64px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo img {
+      height: 56px;
+      width: 56px;
+      border-radius: 12px;
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.6);
+    }
+    .logo-text {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .badge {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #38bdf8;
+    }
+    .btn-primary, .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .btn-primary {
+      background: linear-gradient(to right, #38bdf8, #22c55e);
+      color: #0b1120;
+      box-shadow: 0 10px 30px rgba(56, 189, 248, 0.5);
+    }
+    .btn-primary:hover {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: transparent;
+      color: #e5e7eb;
+      border-color: #4b5563;
+    }
+    .btn-secondary:hover {
+      background: rgba(15, 23, 42, 0.9);
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 32px;
+      align-items: center;
+    }
+    h1 {
+      font-size: 32px;
+      line-height: 1.2;
+      margin: 0 0 12px;
+    }
+    h1 span {
+      background: linear-gradient(to right, #38bdf8, #22c55e);
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+    .subtitle {
+      font-size: 15px;
+      color: #9ca3af;
+      margin-bottom: 20px;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 20px;
+      font-size: 14px;
+      color: #d1d5db;
+    }
+    ul li {
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    ul li::before {
+      content: "•";
+      color: #22c55e;
+    }
+    .tagline {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+    .hero-card {
+      border-radius: 20px;
+      border: 1px solid rgba(55, 65, 81, 0.8);
+      background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.25), transparent 55%),
+                  radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.25), transparent 55%),
+                  rgba(15, 23, 42, 0.96);
+      padding: 18px 18px 16px;
+      font-size: 13px;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.9);
+    }
+    .hero-card h2 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #9ca3af;
+      margin: 0 0 10px;
+    }
+    .scan-line {
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 11px;
+      color: #e5e7eb;
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+    }
+    .scan-line span.prompt {
+      color: #22c55e;
+    }
+    .scan-line span.url {
+      color: #38bdf8;
+    }
+    .scan-line span.vuln {
+      color: #f97316;
+    }
+    .scan-line span.ok {
+      color: #22c55e;
+    }
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .pill {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: rgba(15, 23, 42, 0.9);
+      color: #9ca3af;
+    }
+    .pill strong {
+      color: #e5e7eb;
+    }
+    footer {
+      margin-top: 40px;
+      font-size: 11px;
+      color: #6b7280;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    @media (max-width: 820px) {
+      main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <!-- Замените src на путь к вашему логотипу -->
+        <img src="websecai_logo.png" alt="WebSecAI logo">
+        <div>
+          <div class="logo-text">WebSecAI</div>
+          <div class="badge">AI Web Vulnerability Scanner</div>
+        </div>
+      </div>
+      <div>
+        <!-- Замените ссылки на реальные -->
+        <a class="btn-secondary" href="https://github.com/credibility-index/websec-ai" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h1>Discover web flaws <span>with AI‑assisted precision</span></h1>
+        <p class="subtitle">
+          WebSecAI scans web applications for SQLi, XSS, CSRF, SSRF and basic network segmentation issues, 
+          then generates human‑readable remediation reports in English and Russian.
+        </p>
+        <ul>
+          <li>Detects common OWASP‑style issues: SQL Injection, XSS, CSRF, SSRF.</li>
+          <li>Highlights risky open ports and misconfigured network exposure.</li>
+          <li>AI-generated prioritized fix recommendations (EN/RU).</li>
+        </ul>
+        <div>
+          <a class="btn-primary" href="https://github.com/credibility-index/websec-ai" target="_blank" rel="noopener">Get the scanner</a>
+          <!-- сюда потом можно прикрутить Colab/доку -->
+        </div>
+        <p class="tagline">
+          Designed for security engineers, pentesters and students who want a practical AI‑powered helper.
+        </p>
+      </section>
+
+      <aside>
+        <div class="hero-card">
+          <h2>Console preview</h2>
+          <div class="scan-line">
+            <span class="prompt">$</span> python websec.py<br>
+                        <span class="prompt">Enter URL:</span> <span class="url">http://testphp.vulnweb.com</span><br>
+            <span class="ok">[+] XSS: not detected</span><br>
+            <span class="vuln">[!] CSRF: missing anti‑CSRF token on POST form</span><br>
+            <span class="vuln">[!] Network: SSH exposed in public zone</span>
+          </div>
+          <div class="scan-line">
+            <span class="prompt">AI Report (EN):</span><br>
+            - Prioritize CSRF on sensitive forms.<br>
+            - Restrict SSH exposure to VPN‑only access.
+          </div>
+          <div class="scan-line">
+            <span class="prompt">AI‑отчёт (RU):</span><br>
+            - Закройте CSRF уязвимость для форм с изменением данных.<br>
+            - Ограничьте доступ по SSH только через VPN.
+          </div>
+          <div class="pill-row">
+            <div class="pill"><strong>Tech:</strong> Python · Requests · OpenRouter</div>
+            <div class="pill"><strong>Finds:</strong> SQLi · XSS · CSRF · SSRF</div>
+            <div class="pill"><strong>Extra:</strong> Network segmentation hints</div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <footer>
+      <div>© 2025 WebSecAI. For legal testing of permitted targets only.</div>
+      <div>Created by an independent security researcher &amp; NLP engineer.</div>
+    </footer>
+  </div>
+</body>
+</html>
