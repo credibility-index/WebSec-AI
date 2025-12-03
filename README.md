@@ -1,3 +1,10 @@
+## 🚀 Быстрый старт 
+
+**Веб-версия:** [websec-ai.streamlit.app](https://websec-ai.streamlit.app/)  
+**CLI:** `pip install -r requirements.txt && python websec.py`
+
+Проверяет SQLi/XSS/CSRF/SSRF + network scan + AI-отчеты EN/RU.
+
 # WebSecAI
 AI-powered web vulnerability scanner designed to automatically detect common security flaws in web applications and help developers and security engineers prioritize remediation efforts.
 
@@ -6,6 +13,13 @@ AI-powered web vulnerability scanner designed to automatically detect common sec
 - Generates detailed, dual-language reports (English/Russian)
 - Integrates with OpenAI/OpenRouter for AI-driven analysis and recommendations
 - Supports scanning multiple target URL
+
+## 📸 Демо
+
+**Streamlit UI:**
+![Streamlit demo](<img width="970" height="806" alt="image" src="https://github.com/user-attachments/assets/a9458361-4bad-4692-99e8-51c801aac68b" />)
+
+**Консоль + отчеты:**
 
 ## Installation
 1. Clone the repository
