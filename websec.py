@@ -9,26 +9,36 @@ from scanners.network_scanner import scan_network_segmentation
 
 
 # Инициализация клиента OpenRouter с обязательным HTTP-Referer для идентификации приложения
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-    default_headers={
-        "HTTP-Referer": "https://github.com/credibility-index/websec-ai",  
-        "X-Title": "WebSecAI Scanner"
-    }
-)
+# ── OpenRouter client init ─────────────────────────────────────────────────────
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
+client = None
+if OPENROUTER_API_KEY:
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=OPENROUTER_API_KEY,
+        default_headers={
+            "HTTP-Referer": "https://github.com/credibility-index/websec-ai",
+            "X-Title": "WebSecAI Scanner",
+        },
+    )
 
 def ai_analysis(vulnerabilities: list[str]) -> tuple[str, str]:
     """
     Возвращает два текста:
     - ai_report_en: анализ на английском
-    - ai_report_ru: тот же анализ, переведённый на русский
+    - ai_report_ru: тот же анализ на русском
     """
     if not vulnerabilities:
         en = "[AI] No significant vulnerabilities detected based on current checks."
         ru = "[AI] Существенных уязвимостей не обнаружено по текущим проверкам."
         return en, ru
+
+    # Если ключа нет — сразу пропускаем AI-анализ
+    if not OPENROUTER_API_KEY or client is None:
+        msg_en = "[AI] OpenRouter API key is not configured. Skipping AI analysis."
+        msg_ru = "[AI] Ключ OpenRouter не настроен. AI-анализ пропущен."
+        return msg_en, msg_ru
 
     vulns_str = ", ".join(vulnerabilities)
     base_prompt = (
