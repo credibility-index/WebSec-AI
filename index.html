@@ -163,7 +163,7 @@
       gap: 6px;
       margin-top: 8px;
     }
-    .pill {
+        .pill {
       font-size: 11px;
       padding: 4px 10px;
       border-radius: 999px;
@@ -198,7 +198,6 @@
   <div class="container">
     <header>
       <div class="logo">
-        <!-- Замените src на путь к вашему логотипу -->
         <img src="websec_ai.png" alt="WebSecAI logo">
         <div>
           <div class="logo-text">WebSecAI</div>
@@ -206,8 +205,9 @@
         </div>
       </div>
       <div>
-        <!-- Замените ссылки на реальные -->
-        <a class="btn-secondary" href="https://github.com/credibility-index/websec-ai" target="_blank" rel="noopener">View on GitHub</a>
+        <a class="btn-secondary" href="https://github.com/credibility-index/websec-ai" target="_blank" rel="noopener">
+          View on GitHub
+        </a>
       </div>
     </header>
 
@@ -215,7 +215,7 @@
       <section>
         <h1>Discover web flaws <span>with AI‑assisted precision</span></h1>
         <p class="subtitle">
-          WebSecAI scans web applications for SQLi, XSS, CSRF, SSRF and basic network segmentation issues, 
+          WebSecAI scans web applications for SQLi, XSS, CSRF, SSRF and basic network segmentation issues,
           then generates human‑readable remediation reports in English and Russian.
         </p>
         <ul>
@@ -224,8 +224,12 @@
           <li>AI-generated prioritized fix recommendations (EN/RU).</li>
         </ul>
         <div>
-          <a class="btn-primary" href="https://github.com/credibility-index/websec-ai" target="_blank" rel="noopener">Get the scanner</a>
-          <!-- сюда потом можно прикрутить Colab/доку -->
+          <a class="btn-primary" href="https://websec-ai.streamlit.app/" target="_blank" rel="noopener">
+            Run live scanner
+          </a>
+          <a class="btn-secondary" href="https://github.com/credibility-index/websec-ai" target="_blank" rel="noopener">
+            View on GitHub
+          </a>
         </div>
         <p class="tagline">
           Designed for security engineers, pentesters and students who want a practical AI‑powered helper.
@@ -237,7 +241,7 @@
           <h2>Console preview</h2>
           <div class="scan-line">
             <span class="prompt">$</span> python websec.py<br>
-                        <span class="prompt">Enter URL:</span> <span class="url">http://testphp.vulnweb.com</span><br>
+            <span class="prompt">Enter URL:</span> <span class="url">http://testphp.vulnweb.com</span><br>
             <span class="ok">[+] XSS: not detected</span><br>
             <span class="vuln">[!] CSRF: missing anti‑CSRF token on POST form</span><br>
             <span class="vuln">[!] Network: SSH exposed in public zone</span>
@@ -268,3 +272,4 @@
   </div>
 </body>
 </html>
+
