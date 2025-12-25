@@ -8,6 +8,17 @@ import re
 import socket
 from typing import List
 import requests
+import socket
+
+def check_ssh_public(host):
+    sock = socket.socket()
+    try:
+        sock.settimeout(3)
+        sock.connect((host, 22))
+        banner = sock.recv(1024).decode().strip()
+        return "SSH" in banner  # Critical!
+    except:
+        return False
 
 def get_open_ports(target_ip: str) -> List[str]:
     """Сканирует топ-20 портов для выявления сервисов"""
