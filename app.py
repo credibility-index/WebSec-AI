@@ -18,7 +18,8 @@ def safe_import():
         from scanners.xss import scan_xss
         from scanners.csrf_scanner import check_csrf_protection
         from scanners.ssrf_scanner import scan_ssrf
-        logger.info("✅ Сканеры загружены")
+        from scanners.crypto_scanner import check_wallet  # Только wallet!
+        logger.info("✅ Wallet OK")
         return True, locals()
     except ImportError as e:
         st.error(f"❌ Сканеры недоступны: {e}")
