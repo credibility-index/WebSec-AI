@@ -7,10 +7,12 @@ from scanners.csrf_scanner import check_csrf_protection
 from scanners.ssrf_scanner import scan_ssrf
 from scanners.network_scanner import scan_network_segmentation
 from scanners.crypto_scanner import check_wallet
+from scanners.crypto_scanner import WebSecAIScanner
+import tempfile, zipfile
 
 # Базовые настройки страницы
 st.set_page_config(
-    page_title="WebSecAI Scanner",
+    page_title="WebSecAI Scanner ",
     page_icon="🛡️",
     layout="centered",
 )
@@ -110,6 +112,21 @@ if run_scan:
         st.subheader("AI Analysis")
         ai_en, ai_ru = ai_analysis(vulnerabilities)
 API_KEY = st.secrets.get("ETHERSCAN_API_KEY", "")
+tab1, tab2, tab3, tab4 = st.tabs(["Web", "Crypto", "Stego", "🧩 Extension"])
+
+with tab4:
+    st.header("Chrome Extension Scanner")
+    uploaded_crx = st.file_uploader("Upload .crx", type="crx")
+    if uploaded_crx:
+        with tempfile.NamedTemporaryFile(suffix=".crx", delete=False) as tmp:
+            tmp.write(uploaded_crx.read())
+            tmp_path = tmp.name
+        scanner = WebSecAIScanner()
+        results = scanner.scan_crx(tmp_path)
+        st.json(results)
+        if results['critical'] > 0:
+            st.error("🚨 CRITICAL: Wallet drainer!")
+        os.unlink(tmp_path)  # Cleanup
 
 def check_wallet(input_text):
     wallet = re.search(r'[1-9A-HJ-NP-Za-km-z]{32,44}', input_text)  # OK
