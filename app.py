@@ -3,170 +3,130 @@ import requests
 import re
 import os
 import tempfile
-from websec import ai_analysis
-from scanners.sql_scanner import scan_sql_injection
-from scanners.xss import scan_xss
-from scanners.csrf_scanner import check_csrf_protection
-from scanners.ssrf_scanner import scan_ssrf
-from scanners.network_scanner import scan_network_segmentation
-from scanners.crypto_scanner import WebSecAIScanner, check_wallet
+
+try:
+    from websec import ai_analysis
+    from scanners.sql_scanner import scan_sql_injection
+    from scanners.xss import scan_xss
+    from scanners.csrf_scanner import check_csrf_protection
+    from scanners.ssrf_scanner import scan_ssrf
+    from scanners.network_scanner import scan_network_segmentation
+    from scanners.crypto_scanner import WebSecAIScanner, check_wallet
+except ImportError as e:
+    st.error(f"Import error: {e}")
+    st.stop()
 
 def format_ai_recommendations(vulns):
-    """Форматирует AI рекомендации"""
     if not vulns:
-        return {
-            'en': "🎉 No critical vulnerabilities detected!",
-            'ru': "🎉 Критических уязвимостей не найдено!"
-        }
-    
+        return {'en': '🎉 No vulnerabilities!', 'ru': '🎉 Уязвимостей нет!'}
     ai_en, ai_ru = ai_analysis(vulns)
-    return {
-        'en': f"**Found:** {', '.join(vulns)}\n\n{ai_en}",
-        'ru': f"**Найдено:** {', '.join(vulns)}\n\n{ai_ru}"
-    }
+    return {'en': ai_en, 'ru': ai_ru}
 
 st.set_page_config(page_title="🛡️ WebSecAI", page_icon="🛡️", layout="wide")
 
 st.markdown("""
 <style>
-.stApp {background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);}
-.stButton>button {background: linear-gradient(45deg, #667eea, #764ba2); color:white; border-radius:25px;}
-.ai-box {background:rgba(255,255,255,0.05); border:1px solid #667eea; border-radius:12px; padding:1.5rem;}
+.stApp {background: linear-gradient(135deg,#0f0f23 0%,#1a1a2e 100%);}
+.stButton>button {background:linear-gradient(45deg,#667eea,#764ba2);color:white;border-radius:25px;}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("# 🛡️ **WebSecAI Scanner**")
-st.markdown("*SQLi • XSS • CSRF • SSRF • Network • Crypto*")
+st.title("🛡️ WebSecAI Scanner")
+st.markdown("**SQLi • XSS • CSRF • SSRF • Crypto**")
 st.divider()
 
-col1, col2 = st.columns([3,1])
+col1, col2 = st.columns([3, 1])
 with col1:
-    target_url = st.text_input("🌐 Target URL", "http://testphp.vulnweb.com/")
+    target_url = st.text_input("🌐 URL", "http://testphp.vulnweb.com/")
 with col2:
-    st.info("💡 testphp.vulnweb.com = test site")
+    st.info("Test site")
 
-run_scan = st.button("🚀 **START SCAN**", type="primary", use_container_width=True)
-
-if run_scan and target_url.strip():
-    if not target_url.startswith(('http://','https://')):
-        st.error("❌ Add http:// or https://")
-    else:
+if st.button("🚀 SCAN", type="primary"):
+    if target_url.startswith(('http')):
         vulnerabilities = []
-        st.subheader("📊 Scan Results")
+        st.subheader("📊 Results")
         
-        # Progress bar
-        progress_bar = st.progress(0)
-        status_text = st.empty()
+        with st.spinner("SQLi..."):
+            if scan_sql_injection(target_url):
+                vulnerabilities.append("SQLi")
+                st.error("🕷️ SQLi!")
+            else:
+                st.success("✅ SQLi clean")
         
-        # SQL Injection
-        status_text.text('Scanning SQL Injection...')
-        progress_bar.progress(0.2)
-        if scan_sql_injection(target_url):
-            vulnerabilities.append("SQL Injection")
-            st.error("🕷️ SQL Injection DETECTED!")
-        else:
-            st.success("✅ SQL Injection: clean")
+        with st.spinner("XSS..."):
+            if scan_xss(target_url):
+                vulnerabilities.append("XSS")
+                st.error("🕷️ XSS!")
+            else:
+                st.success("✅ XSS clean")
         
-        # XSS
-        status_text.text('Scanning XSS...')
-        progress_bar.progress(0.4)
-        if scan_xss(target_url):
-            vulnerabilities.append("XSS")
-            st.error("🕷️ XSS DETECTED!")
-        else:
-            st.success("✅ XSS: clean")
+        with st.spinner("CSRF..."):
+            if check_csrf_protection(target_url):
+                vulnerabilities.append("CSRF")
+                st.error("🕷️ CSRF!")
+            else:
+                st.success("✅ CSRF OK")
         
-        # CSRF
-        status_text.text('Scanning CSRF...')
-        progress_bar.progress(0.6)
-        if check_csrf_protection(target_url):
-            vulnerabilities.append("CSRF")
-            st.error("🕷️ CSRF protection MISSING!")
-        else:
-            st.success("✅ CSRF: protected")
+        with st.spinner("SSRF..."):
+            if scan_ssrf(target_url):
+                vulnerabilities.append("SSRF")
+                st.error("🕷️ SSRF!")
+            else:
+                st.success("✅ SSRF clean")
         
-        # SSRF
-        status_text.text('Scanning SSRF...')
-        progress_bar.progress(0.8)
-        if scan_ssrf(target_url):
-            vulnerabilities.append("SSRF")
-            st.error("🕷️ SSRF DETECTED!")
-        else:
-            st.success("✅ SSRF: clean")
+        with st.spinner("Network..."):
+            net_issues = scan_network_segmentation(target_url)
+            if net_issues:
+                for issue in net_issues:
+                    vulnerabilities.append(issue)
+                    st.error(f"🌐 {issue}")
+            else:
+                st.success("✅ Network OK")
         
-        # Network
-        status_text.text('Scanning network...')
-        progress_bar.progress(1.0)
-        net_issues = scan_network_segmentation(target_url)
-        if net_issues:
-            st.error("🌐 Network issues:")
-            for issue in net_issues:
-                vulnerabilities.append(f"Network: {issue}")
-                st.write(f"  • {issue}")
-        else:
-            st.success("✅ Network: secure")
-        
-        progress_bar.empty()
-        status_text.empty()
-        
-        # Crypto Test
         st.markdown("---")
-        st.subheader("₿ Crypto Check")
-        test_wallet = check_wallet("t.me/fake/0x742d35cc6e3e8e1C5eD9a12345678901234567890123")
-        st.markdown(test_wallet)
+        st.subheader("₿ Crypto Test")
+        crypto_result = check_wallet("0x742d35cc6e3e8e1C5eD9a12345678901234567890123")
+        st.markdown(crypto_result)
         
-        # AI Analysis
         st.markdown("---")
-        st.subheader("🤖 AI Recommendations")
+        st.subheader("🤖 AI Analysis")
         ai_recs = format_ai_recommendations(vulnerabilities)
         
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("**🇺🇸 English**")
-            st.markdown(f'<div class="ai-box">{ai_recs["en"]}</div>', unsafe_allow_html=True)
+            st.markdown("**🇺🇸 EN**")
+            st.write(ai_recs['en'])
         with col2:
-            st.markdown("**🇷🇺 Русский**")
-            st.markdown(f'<div class="ai-box">{ai_recs["ru"]}</div>', unsafe_allow_html=True)
+            st.markdown("**🇷🇺 RU**")
+            st.write(ai_recs['ru'])
         
-        # Metrics
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Vulnerabilities", len(vulnerabilities))
-        with col2:
-            st.metric("Risk Level", "HIGH" if len(vulnerabilities)>2 else "LOW")
+        st.metric("Vulns found", len(vulnerabilities))
+    else:
+        st.error("❌ Invalid URL")
 
-tab1, tab2, tab3, tab4 = st.tabs(["📋 Results", "₿ Crypto", "🔍 Stego", "🧩 Extensions"])
+# Табы
+tab1, tab2, tab3, tab4 = st.tabs(["📋 Results", "₿ Crypto", "🔍 Other", "🧩 Ext"])
 
 with tab1:
-    st.info("Results shown above!")
+    st.success("Results above!")
 
 with tab2:
-    st.subheader("Quick Wallet Check")
-    wallet_input = st.text_input("Paste Telegram/wallet link:")
-    if st.button("Check Wallet"):
-        result = check_wallet(wallet_input)
-        st.markdown(result)
+    wallet = st.text_input("Wallet check:")
+    if st.button("Check"):
+        st.markdown(check_wallet(wallet))
 
 with tab3:
-    st.info("Steganography analysis coming soon")
+    st.info("More scanners coming...")
 
 with tab4:
-    st.subheader("Chrome Extension Scanner")
-    uploaded_file = st.file_uploader("Upload .crx", type="crx")
-    if uploaded_file:
+    crx = st.file_uploader("Upload .crx")
+    if crx and st.button("Scan"):
         with tempfile.NamedTemporaryFile(suffix=".crx", delete=False) as tmp:
-            tmp.write(uploaded_file.read())
-            tmp_path = tmp.name
-        
-        if st.button("Scan Extension"):
-            try:
-                scanner = WebSecAIScanner()
-                results = scanner.scan_crx(tmp_path)
-                st.json(results)
-                if results.get('critical', 0) > 0:
-                    st.error("🚨 CRITICAL issues found!")
-            finally:
-                os.unlink(tmp_path)
+            tmp.write(crx.read())
+            path = tmp.name
+        scanner = WebSecAIScanner()
+        results = scanner.scan_crx(path)
+        st.json(results)
+        os.unlink(path)
 
-st.markdown("---")
-st.caption("🛡️ WebSecAI 2026 | Cybersecurity Scanner")
+st.markdown("🛡️ WebSecAI 2026")
