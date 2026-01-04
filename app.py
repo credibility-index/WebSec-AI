@@ -1,11 +1,12 @@
 import streamlit as st
-
+import requests
 from websec import ai_analysis
 from scanners.sql_scanner import scan_sql_injection
 from scanners.xss import scan_xss
 from scanners.csrf_scanner import check_csrf_protection
 from scanners.ssrf_scanner import scan_ssrf
 from scanners.network_scanner import scan_network_segmentation
+from scanners.crypto_scanner import check_wallet
 
 # Базовые настройки страницы
 st.set_page_config(
@@ -90,7 +91,7 @@ if run_scan:
             else:
                 st.success("SSRF: not detected")
 
-        with st.spinner("Scanning network segmentation..."):
+ with st.spinner("Scanning network segmentation..."):
             net_issues = scan_network_segmentation(target_url)
             if net_issues:
                 st.warning("Network segmentation issues:")
@@ -100,6 +101,31 @@ if run_scan:
             else:
                 st.success("Network segmentation: no obvious issues")
 
+        # ✅ Crypto в цикле scan
+        st.subheader("🚨 Crypto Scam Check")
+        test_link = "t.me/fake/0x742d35cc6e3e8e1C5eD9a12345678901234567890123"  # Тест dead wallet
+        crypto_risk = check_wallet(test_link)
+        st.markdown(crypto_risk)
+
+        st.subheader("AI Analysis")
+        ai_en, ai_ru = ai_analysis(vulnerabilities)
+API_KEY = st.secrets.get("ETHERSCAN_API_KEY", "")
+
+def check_wallet(input_text):
+    wallet = re.search(r'[1-9A-HJ-NP-Za-km-z]{32,44}', input_text)  # OK
+    if not wallet:
+        return "❌ No wallet found"
+    addr = wallet.group()
+    if not API_KEY:
+        return "❌ Add ETHERSCAN_API_KEY to .streamlit/secrets.toml"
+    url = f"https://api.etherscan.io/api?module=account&action=balance&address={addr}&apikey={API_KEY}"
+    resp = requests.get(url, timeout=5).json()  # ✅ requests.get
+    if resp['status'] != '1':
+        return "❌ API error"
+    balance = int(resp['result'])
+    risk = "🚨 HIGH SCAM (0 ETH)" if balance == 0 else f"✅ OK | {balance/1e18:.4f} ETH"
+    return risk
+    
         st.subheader("AI Analysis")
         ai_en, ai_ru = ai_analysis(vulnerabilities)
         st.markdown("**English:**")
