@@ -235,8 +235,8 @@ with tab3:
     * SSRF-уязвимости
     
     ## Разработчики
-    * [GitHub](https://github.com/yourprofile)
-    * [Telegram](https://t.me/yourchannel)
+    * [GitHub](https://github.com/credibility-index/WebSec-AI)
+    * [Telegram](https://t.me/likeluv)
     """)
 
 # Нижний колонтитул
