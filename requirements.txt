@@ -9,3 +9,5 @@ openai
 pytest==7.4.0
 
 streamlit
+
+cryptography==42.0.8
