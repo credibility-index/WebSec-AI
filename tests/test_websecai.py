@@ -65,6 +65,14 @@ class TestWebSecAI(unittest.TestCase):
 
         result = scan_sql_injection("http://test.com")
         self.assertFalse(result)
+    
+    @patch('requests.get')
+    def test_sql_injection_union_attack(self, mock_get):
+        mock_get.return_value.text = "UNION attack detected"
+        
+        result = scan_sql_injection("http://test.com")
+        self.assertTrue(result)
+
 
     @patch('requests.get')
     def test_xss_detected(self, mock_get):
@@ -74,6 +82,11 @@ class TestWebSecAI(unittest.TestCase):
 
         result = scan_xss("http://test.com")
         self.assertTrue(result)
+    @patch('requests.get')
+def test_xss_dom_based(self, mock_get):
+    mock_get.return_value.text = "<img src=x onerror=alert(1)>"
+    result = scan_xss("http://test.com")
+    self.assertTrue(result)
 
     @patch('requests.get')
     def test_csrf_missing_token(self, mock_get):
@@ -83,7 +96,11 @@ class TestWebSecAI(unittest.TestCase):
 
         result = check_csrf_protection("http://test.com")
         self.assertTrue(result)  # True = уязвимость есть
-
+    @patch('requests.get')
+    def test_csrf_token_in_header(self, mock_get):
+        mock_get.return_value.text = "<form method='POST' headers='X-CSRF-TOKEN: abc123'></form>"
+        result = check_csrf_protection("http://test.com")
+        self.assertFalse(result)  # Уязвимости нет, токен в заголовке
     @patch('requests.post')
     def test_ssrf_not_detected(self, mock_post):
         """SSRF не обнаружен"""
@@ -91,6 +108,11 @@ class TestWebSecAI(unittest.TestCase):
 
         result = scan_ssrf("http://test.com")
         self.assertFalse(result)
+    @patch('requests.post')
+def test_ssrf_internal_ip(self, mock_post):
+    mock_post.return_value.text = "Internal server error"
+    result = scan_ssrf("http://192.168.1.1")
+    self.assertTrue(result)  
 
     def test_network_segmentation_localhost(self):
         """Network scan не должен падать на localhost и возвращает список"""
@@ -104,7 +126,28 @@ class TestWebSecAI(unittest.TestCase):
 
         issues = scan_network_segmentation("http://192.168.0.10")
         self.assertTrue(any("SSH exposed in public zone" in i for i in issues))
+    @patch('scanners.network_scanner.get_open_ports')
+def test_network_segmentation_ftp_port(self, mock_get_open_ports):
+    mock_get_open_ports.return_value = ["21/tcp"]
+    issues = scan_network_segmentation("http://192.168.0.10")
+    self.assertTrue(any("FTP exposed" in i for i in issues))
+    @patch('requests.get', side_effect=requests.exceptions.ConnectionError)
+def test_sql_injection_connection_error(self, mock_get):
+    result = scan_sql_injection("http://unreachable.com")
+    self.assertFalse(result)  # Сканер должен возвращать False при ошибке подключения
 
+   @patch('scanners.crypto_scanner.validate_wallet')
+def test_crypto_scanner_valid_wallet(self, mock_validate):
+    mock_validate.return_value = True
+    result = scan_crypto_wallet("valid_address")
+    self.assertTrue(result)
+    @patch('websec.client')
+def test_ai_analysis_multiple_vulns(self, mock_client):
+    result_en, result_ru = ai_analysis(["CSRF", "XSS", "SQLi"])
+    self.assertIn("CSRF", result_en)
+    self.assertIn("XSS", result_en)
+    self.assertIn("SQLi", result_en)
 
+  
 if __name__ == '__main__':
     unittest.main()
