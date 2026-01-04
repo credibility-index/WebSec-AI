@@ -96,7 +96,7 @@ if st.button("🚀 SCAN", type="primary"):
             st.write(f"✅ SQLi: {'Vulnerable' if 'SQLi' in vulnerabilities else 'Clean'}")
             st.write(f"✅ XSS: {'Vulnerable' if 'XSS' in vulnerabilities else 'Clean'}")
             st.write(f"✅ CSRF: {'Vulnerable' if 'CSRF' in vulnerabilities else 'Clean'}")
-            st.write(f"✅ SSRF: {'Vulnerable' if 'SSRF' in vulneravilities else 'Clean'}")
+            st.write(f"✅ SSRF: {'Vulnerable' if 'SSRF' in vulnerabilities else 'Clean'}")
 
             if vulnerabilities:
                 st.error("Network issues found:")
