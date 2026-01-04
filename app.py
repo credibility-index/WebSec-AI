@@ -120,84 +120,150 @@ if st.button("🚀 SCAN", type="primary"):
             col1, col2 = st.columns(2)
             with col1:
                 st.markdown("**🇺🇸 EN**")
-                st.write(ai_recs['en'])
+                st.write(ai_recs['en'])import streamlit as st
+import requests
+import re
+import os
+import tempfile
+import logging
+import time
+import json
+from datetime import datetime
+
+# Логгирование
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('websec_ai.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+try:
+    from websec import ai_analysis
+    from scanners.sql_scanner import scan_sql_injection
+    from scanners.xss import scan_xss
+    from scanners.csrf_scanner import check_csrf_protection
+    from scanners.ssrf_scanner import scan_ssrf
+    from scanners.network_scanner import scan_network_segmentation
+    from scanners.crypto_scanner import WebSecAIScanner, check_wallet
+    logger.info("Все сканеры загружены")
+except ImportError as e:
+    logger.error(f"Импорт ошибка: {e}")
+    st.error("❌ Сканеры недоступны")
+
+st.set_page_config(page_title="WebSecAI", page_icon="🛡️", layout="wide")
+
+st.markdown("""
+<style>
+    .main {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);}
+</style>
+""")
+
+col1, col2 = st.columns([3, 1])
+target_url = col1.text_input("🔗 URL для скана:", placeholder="https://example.com")
+run_scan = col1.button("🚀 СКАНИРОВАТЬ", type="primary")
+
+if run_scan and target_url:
+    logger.info(f"Скан {target_url}")
+    start_time = time.time()
+    
+    with st.spinner("Сканирую..."):
+        try:
+            vulnerabilities = []
+            
+            sql_risk = scan_sql_injection(target_url)
+            if sql_risk:
+                vulnerabilities.append("SQL Injection")
+            
+            xss_risk = scan_xss(target_url)
+            if xss_risk:
+                vulnerabilities.append("XSS")
+            
+            csrf_status = check_csrf_protection(target_url)
+            ssrf_risk = scan_ssrf(target_url)
+            network_risk = scan_network_segmentation(target_url)
+            
+            ai_recs = ai_analysis(target_url)
+            
+            logger.info(f"Найдено: {len(vulnerabilities)} уязвимостей")
+            
+            with col1:
+                if vulnerabilities:
+                    st.error(f"🚨 Найдено: {len(vulnerabilities)} уязвимостей")
+                    for vuln in vulnerabilities:
+                        st.error(f"• {vuln}")
+                else:
+                    st.success("✅ Критичных нет")
+            
             with col2:
                 st.markdown("**🇷🇺 RU**")
-                st.write(ai_recs['ru'])
-
-            # Метрика найденных уязвимостей
+                st.write(ai_recs.get('ru', 'Нет рекомендаций'))
+            
             st.metric("Vulns found", len(vulnerabilities))
-
-            # Время выполнения
             end_time = time.time()
-            st.success(f"Scan completed in {end_time - start_time:.2f} seconds")
+            st.success(f"Скан: {end_time - start_time:.2f} сек")
 
-            # Экспорт результатов
-            if st.button("Download Results"):
+            if st.button("📥 Download Results"):
                 results = {
                     "url": target_url,
                     "vulnerabilities": vulnerabilities,
-                    "scan_time": end_time - start_time
+                    "scan_time": end_time - start_time,
+                    "ai_recs": ai_recs
                 }
-                with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
-                    import json
-                    json.dump(results, f)
-                    st.download_button(
-                        label="Download JSON",
-                        data=f.read(),
-                        file_name="scan_results.json",
-                        mime="application/json"
-                    )
-
+                csv = json.dumps(results, indent=2, ensure_ascii=False)
+                st.download_button(
+                    label="Download JSON",
+                    data=csv,
+                    file_name=f"scan_{datetime.now().strftime('%Y%m%d')}.json",
+                    mime="application/json"
+                )
+                
         except Exception as e:
-            logging.error(f"Scan error: {e}")
-            st.error(f"Error during scan: {str(e)}")
+            logger.error(f"Скан ошибка: {e}")
+            st.error(f"Ошибка: {str(e)}")
 
-# Табы
+# Табы (вне if)
 tab1, tab2, tab3, tab4 = st.tabs(["📋 Results", "₿ Crypto", "🔍 Other", "🧩 Ext"])
 
 with tab1:
-    st.success("Results above!")
+    st.success("Результаты выше!")
 
 with tab2:
-    wallet = st.text_input("Wallet check:")
-    if st.button("Check"):
-        if wallet:
+    wallet = st.text_input("₿ Wallet:")
+    if st.button("Check") and wallet:
+        try:
             result = check_wallet(wallet)
             st.markdown(result)
-        else:
-            st.warning("Please enter a wallet address")
+            logger.info(f"Wallet check: {wallet[:10]}...")
+        except Exception as e:
+            logger.error(f"Wallet error: {e}")
+            st.error(f"Ошибка: {e}")
 
 with tab3:
-    st.info("More scanners coming...")
+    st.info("Больше сканеров скоро...")
 
 with tab4:
     crx = st.file_uploader("Upload .crx", type=["crx"])
-    if crx:
-        if st.button("Scan"):
-            try:
-                with tempfile.NamedTemporaryFile(suffix=".crx", delete=False) as tmp:
-                    tmp.write(crx.read())
-                    path = tmp.name
-                    
-                scanner = WebSecAIScanner()
-                results = scanner.scan_crx(path)
-                
-                # Валидация результатов
-                if isinstance(results, dict):
-                    st.json(results)
-                else:
-                    st.error("Invalid scan results")
-                    
-                os.unlink(path)
-                
-            except Exception as e:
-                logging.error(f"CRX scan error: {e}")
-                st.error(f"Error scanning CRX: {str(e)}")
+    if crx and st.button("Scan CRX"):
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".crx", delete=False) as tmp:
+                tmp.write(crx.read())
+                path = tmp.name
+            
+            logger.info("CRX скан начат")
+            scanner = WebSecAIScanner()
+            results = scanner.scan_crx(path)
+            
+            st.json(results)
+            os.unlink(path)
+            logger.info("CRX скан завершён")
+            
+        except Exception as e:
+            logger.error(f"CRX ошибка: {e}")
+            st.error(f"CRX ошибка: {e}")
 
-# Footer
-st.markdown("""
----
-🛡️ WebSecAI 2026
-© All rights reserved
-""")
+st.markdown("---")
+st.caption("🛡️ WebSecAI 2026 | Логи: websec_ai.log")
