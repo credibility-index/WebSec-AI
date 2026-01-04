@@ -36,9 +36,9 @@ st.markdown("**SQLi • XSS • CSRF • SSRF • Crypto**")
 st.divider()
 
 col1, col2 = st.columns([3, 1])
-with col1:
+    with col1:
     target_url = st.text_input("🌐 URL", "http://testphp.vulnweb.com/")
-with col2:
+    with col2:
     st.info("Test site")
 
 if st.button("🚀 SCAN", type="primary"):
@@ -46,42 +46,42 @@ if st.button("🚀 SCAN", type="primary"):
         vulnerabilities = []
         st.subheader("📊 Results")
         
-        with st.spinner("SQLi..."):
-            if scan_sql_injection(target_url):
+            with st.spinner("SQLi..."):
+                if scan_sql_injection(target_url):
                 vulnerabilities.append("SQLi")
                 st.error("🕷️ SQLi!")
-            else:
+                else:
                 st.success("✅ SQLi clean")
         
-        with st.spinner("XSS..."):
-            if scan_xss(target_url):
-                vulnerabilities.append("XSS")
-                st.error("🕷️ XSS!")
-            else:
+            with st.spinner("XSS..."):
+                if scan_xss(target_url):
+                    vulnerabilities.append("XSS")
+                    st.error("🕷️ XSS!")
+                else:
                 st.success("✅ XSS clean")
         
-        with st.spinner("CSRF..."):
-            if check_csrf_protection(target_url):
-                vulnerabilities.append("CSRF")
-                st.error("🕷️ CSRF!")
-            else:
-                st.success("✅ CSRF OK")
+            with st.spinner("CSRF..."):
+                if check_csrf_protection(target_url):
+                    vulnerabilities.append("CSRF")
+                    st.error("🕷️ CSRF!")
+                else:
+                    st.success("✅ CSRF OK")
         
-        with st.spinner("SSRF..."):
-            if scan_ssrf(target_url):
-                vulnerabilities.append("SSRF")
-                st.error("🕷️ SSRF!")
-            else:
-                st.success("✅ SSRF clean")
+            with st.spinner("SSRF..."):
+                if scan_ssrf(target_url):
+                    vulnerabilities.append("SSRF")
+                    st.error("🕷️ SSRF!")
+                else:
+                    st.success("✅ SSRF clean")
         
-        with st.spinner("Network..."):
-            net_issues = scan_network_segmentation(target_url)
-            if net_issues:
-                for issue in net_issues:
-                    vulnerabilities.append(issue)
-                    st.error(f"🌐 {issue}")
-            else:
-                st.success("✅ Network OK")
+            with st.spinner("Network..."):
+                net_issues = scan_network_segmentation(target_url)
+                if net_issues:
+                    for issue in net_issues:
+                        vulnerabilities.append(issue)
+                        st.error(f"🌐 {issue}")
+                else:
+                    st.success("✅ Network OK")
         
         st.markdown("---")
         st.subheader("₿ Crypto Test")
