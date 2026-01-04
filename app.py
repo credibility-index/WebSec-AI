@@ -11,10 +11,6 @@ from scanners.ssrf_scanner import scan_ssrf
 from scanners.network_scanner import scan_network_segmentation
 from scanners.crypto_scanner import WebSecAIScanner, check_wallet
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# 1. ФУНКЦИИ
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def format_ai_recommendations(vulns):
     """Форматирует AI рекомендации"""
     if not vulns:
