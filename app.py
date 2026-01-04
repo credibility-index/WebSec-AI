@@ -7,6 +7,7 @@ import logging
 import time
 import json
 from datetime import datetime
+from typing import Dict, List
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -40,6 +41,20 @@ st.markdown('<style>.main {background: linear-gradient(135deg, #667eea 0%, #764b
 
 col1, col2 = st.columns([3, 1])
 target_url = col1.text_input("🔗 URL:", placeholder="https://example.com")
+
+def generate_detailed_report(vulnerabilities: List[str], url: str, scan_time: float) -> Dict:
+    report = {
+        "target": url,
+        "scan_time": scan_time,
+        "vulnerabilities": {
+            "sql_injection": "Обнаружено" if "SQLi" in vulnerabilities else "Не обнаружено",
+            "xss": "Обнаружено" if "XSS" in vulnerabilities else "Не обнаружено",
+            "csrf": "Обнаружено" if "CSRF" in vulnerabilities else "Не обнаружено",
+            "ssrf": "Обнаружено" if "SSRF" in vulnerabilities else "Не обнаружено"
+        },
+        "ai_analysis": {}
+    }
+    return report
 
 if col1.button("🚀 СКАНИРОВАТЬ", type="primary") and target_url:
     logger.info(f"Скан: {target_url}")
@@ -76,47 +91,87 @@ if col1.button("🚀 СКАНИРОВАТЬ", type="primary") and target_url:
     
     end_time = time.time()
     
-    col1.metric("⏱️ Время", f"{end_time-start_time:.1f}с")
-    col1.metric("🚨 Vulns", len(vulnerabilities))
+        # Расчет времени сканирования
+    scan_duration = end_time - start_time
     
+    # Генерация детального отчета
+    report = generate_detailed_report(vulnerabilities, target_url, scan_duration)
+    
+    # Вывод метрик
+    col1.metric("⏱️ Время сканирования", f"{scan_duration:.1f}с")
+    col1.metric("🚨 Найденные уязвимости", len(vulnerabilities))
+    
+    # Отображение результатов сканирования
     if vulnerabilities:
-        col1.error("🚨 Найдено!")
+        col1.error("🚨 Уязвимости обнаружены!")
         for v in vulnerabilities:
             col1.error(f"• {v}")
     else:
-        col1.success("✅ Чисто!")
+        col1.success("✅ Уязвимости не обнаружены")
     
-    # AI всегда
-    col2.markdown("**🤖 AI Рекомендации 🇷🇺**")
+    # Улучшенный AI-анализ
     try:
         ai_recs = ai_analysis(vulnerabilities or [target_url])
-        col2.markdown(ai_recs.get('ru', 'AI недоступен'))
+        ai_report = ai_recs.get('ru', 'AI недоступен')
+        
+        # Добавление AI-анализа в отчет
+        report['ai_analysis'] = {
+            "summary": ai_recs.get('summary', ''),
+            "recommendations": ai_recs.get('recommendations', []),
+            "risk_level": ai_recs.get('risk_level', 'Неизвестно')
+        }
+        
+        col2.markdown("**🤖 AI Рекомендации**")
+        col2.markdown(f"### Общий вывод:\n{ai_recs.get('summary', 'Нет данных')}")
+        col2.markdown(f"### Уровень риска:\n{ai_recs.get('risk_level', 'Неизвестно')}")
+        col2.markdown(f"### Рекомендации:\n{ai_recs.get('recommendations', 'Нет рекомендаций')}")
     except Exception as e:
-        col2.warning(f"AI: {str(e)[:100]}")
+        col2.warning(f"Ошибка AI-анализа: {str(e)[:100]}")
     
-    if col1.button("📥 JSON"):
+    # Функция экспорта JSON
+    def get_json_report():
+        return json.dumps(report, ensure_ascii=False, indent=2)
+    
+    # Кнопка экспорта
+    if col1.button("📥 Экспортировать отчет в JSON"):
         st.download_button(
-            label="Скачать отчёт",
-            data=json.dumps({
-                "url": target_url,
-                "vulns": vulnerabilities,
-                "time": end_time - start_time,
-                "ai": ai_recs if 'ai_recs' in locals() else 'N/A'
-            }, ensure_ascii=False, indent=2),
-            file_name=f"websec_{datetime.now().strftime('%d%m%y_%H%M')}.json",
+            label="Скачать отчет",
+            data=get_json_report(),
+            file_name=f"websec_report_{datetime.now().strftime('%d%m%y_%H%M')}.json",
             mime="application/json"
         )
 
-# Tabs без crypto пока
-tab1, tab2, tab3 = st.tabs(["📋 Results", "🔍 Other", "ℹ️ Info"])
-with tab1: st.success("Результаты выше!")
-with tab2: st.info("Дополнительные сканы скоро...")
-with tab3: 
+# Табы с информацией
+tab1, tab2, tab3 = st.tabs(["📋 Результаты", "🔍 Дополнительно", "ℹ️ Информация"])
+
+with tab1:
+    st.markdown("### Основные результаты сканирования")
+    st.json(report, expanded=False)
+
+with tab2:
+    st.info("Здесь будут доступны дополнительные сканы и анализы...")
+
+with tab3:
     st.markdown("""
-    🛡️ **WebSecAI** — быстрый сканер OWASP Top 10  
-    ✅ SQLi, XSS, CSRF, SSRF  
-    🤖 OpenRouter AI анализ  
-    t.me/likeluv
+    # WebSecAI
+    
+    ## О приложении
+    **WebSecAI** — инструмент для быстрого сканирования веб-уязвимостей.
+    
+    ## Проверяемые уязвимости
+    * SQL-инъекции
+    * XSS-атаки
+    * CSRF-уязвимости
+    * SSRF-уязвимости
+    
+    ## Особенности
+    * AI-анализ результатов
+    * Детальная отчетность
+    * Экспорт в JSON
+    
+    ## Контакты
+    [Telegram](https://t.me/likeluv)
     """)
 
-st.caption("🛡️ WebSecAI | https://t.me/likeluv")
+st.caption("© WebSecAI 2026 | Все права защищены")
+
