@@ -44,6 +44,9 @@ target_url = col1.text_input("🔗 URL:", placeholder="https://example.com")
 if col1.button("🚀 СКАНИРОВАТЬ", type="primary") and target_url:
     logger.info(f"Скан: {target_url}")
     start_time = time.time()
+with col1:
+    with st.spinner("🔍 Сканирую..."):
+        sql_risk = scan_sql_injection(target_url, timeout=30) 
     
     vulnerabilities = []
     
