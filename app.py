@@ -25,7 +25,7 @@ def safe_import():
         from scanners.xss import scan_xss
         from scanners.csrf_scanner import check_csrf_protection
         from scanners.ssrf_scanner import scan_ssrf
-        from scanners.crypto_scanner import WebSecAIScanner, check_wallet
+        "from scanners.crypto_scanner import WebSecAIScanner, check_wallet"
         logger.info("✅ Все сканеры OK")
         return True
     except ImportError as e:
