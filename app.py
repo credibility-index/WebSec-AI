@@ -165,6 +165,5 @@ with tab4:
     ### 📱 **Contacts:**
     🌐 [GitHub](https://github.com/credibility-index/WebSec-AI)
     💬 [Telegram](https://t.me/likeluv)
-    
-    
+    """)    
     st.balloons()
