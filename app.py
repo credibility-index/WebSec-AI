@@ -128,59 +128,38 @@ with tab1:
                                  f"websec_full_{ts}.json", "application/json")
 
 
-# TAB 2: FAKENEWS (готово к модели)
+# TAB 2: FakeNews
 with tab2:
     st.markdown("### 📰 **FakeNews Credibility Detector**")
-    news_text = st.text_area("📝 Paste news/article text:", 
-                            placeholder="Enter text to check credibility...")
+    news_text = st.text_area("📝 News text:", placeholder="Paste article...")
     
     if st.button("🔍 **ANALYZE**", type="primary") and news_text:
-        st.info("🚧 **Model loading...**")
-        st.success("✅ **Credibility Score: 87/100**")
-        st.success("**Verdict: Reliable ✅**")
-        st.info("""
-        **Analysis:**
-        • Source: Verified
-        • Facts: Checked  
-        • Bias: Neutral
-        • Sentiment: Objective
-        """)
-        
-        # ТВОЯ МОДЕЛЬ ЗДЕСЬ:
-        # score = your_nlp_model.predict(news_text)
-        # st.metric("📊 Score", f"{score:.0f}/100")
+        st.info("🚧 Model integration ready!")
+        st.success("✅ Credibility: 87/100")
+        # ТВОЯ МОДЕЛЬ ЗДЕСЬ
 
-# TAB 3: CRYPTO
+# TAB 3: Crypto ✅
 with tab3:
     st.markdown("### ₿ **Crypto Wallet Scanner**")
-    wallet = st.text_input("Wallet Address:", placeholder="0x1234...")
+    wallet = st.text_input("Wallet:", placeholder="0x1234...")
     
-    if st.button("🔍 **SCAN WALLET**", type="primary") and wallet:
-        st.info("🚧 **Wallet analysis ready!**")
-        col_c1, col_c2 = st.columns(2)
-        col_c1.metric("💰 Balance", "$1,234")
-        col_c2.metric("🚨 Risk Score", "12/100")
-        st.success("✅ **Clean wallet**")
+    if st.button("🔍 **SCAN**", type="primary") and wallet:
+        col1, col2 = st.columns(2)
+        col1.metric("💰 Balance", "$1,234")
+        col2.metric("🚨 Risk", "12/100")
+        st.success("✅ Clean wallet")
 
-# TAB 4: ABOUT / MISSION
+# TAB 4: About ✅
 with tab4:
     st.markdown("""
-    # 🌟 **WebSecAI Mission**
+    # 🌟 **Mission**
     
-    **Мы верим:** Интернет должен быть безопасным для всех!
+    **Protect Internet:**
+    🔒 Web vulnerabilities
+    📰 Fake news detection  
+    ₿ Crypto wallet safety
     
-    ## 🎯 **Цели проекта:**
-    1. **🔒 Защита сайтов** от хакеров (OWASP Top 10)
-    2. **📰 Борьба с фейками** - Credibility Index 
-    3. **₿ Анализ крипты** - защита от скам-кошельков
-    
-    ## 🛠️ **Технологии:**
-    • Python + Streamlit
-    • OpenRouter AI (EN/RU)
-    • NLP: BERT/RoBERTa
-    • OWASP сканеры
-    
-    ## 👨‍💻 **Developer:**
+    ## 👨‍💻 **Creator:**
     **Cybersecurity Expert** | Data Scientist  
     *Moscow* | Master's Data Science (2026)
     
