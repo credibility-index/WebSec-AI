@@ -50,7 +50,7 @@ with st.sidebar:
 # ── 4 ТАБА ───────────────────────────────────────────────────────────────────
 tab1, tab2, sidebar3, tab4 = st.tabs(["🔒 Web Security", "📰 FakeNews", "₿ Crypto", "ℹ️ About"])
 
-# TAB 1: WEB SECURITY
+# TAB 1: WEB SECURITY ✅ ИСПРАВЛЕНО
 with tab1:
     st.markdown("### 🔗 **Website Vulnerability Scanner**")
     col1, _ = st.columns([3, 1])
@@ -66,7 +66,8 @@ with tab1:
                 if scan_xss(url): vulns.append("XSS")
                 if check_csrf_protection(url): vulns.append("CSRF")
                 if scan_ssrf(url): vulns.append("SSRF")
-            except: pass
+            except: 
+                pass
             
             scan_time = time.time() - t0
             
@@ -82,10 +83,10 @@ with tab1:
             
             st.markdown("**Status:**")
             status = {
-                "SQL Injection": "🟡" if "SQLi" in vulns else "✅",
-                "XSS": "🟡" if "XSS" in vulns else "✅",
-                "CSRF": "🟡" if "CSRF" in vulns else "✅",
-                "SSRF": "🟡" if "SSRF" in vulns else "✅"
+                "SQL Injection": "🟡 DETECTED" if "SQLi" in vulns else "✅ CLEAN",
+                "XSS": "🟡 DETECTED" if "XSS" in vulns else "✅ CLEAN",
+                "CSRF": "🟡 DETECTED" if "CSRF" in vulns else "✅ CLEAN",
+                "SSRF": "🟡 DETECTED" if "SSRF" in vulns else "✅ CLEAN"
             }
             st.table(status)
             
@@ -93,18 +94,39 @@ with tab1:
             col_ai1, col_ai2 = st.columns(2)
             with col_ai1:
                 st.markdown("### 🇺🇸 **AI Report**")
-                st.code(ai_en)
+                st.code(ai_en, language="markdown")
             with col_ai2:
                 st.markdown("### 🇷🇺 **AI Отчёт**")
-                st.code(ai_ru)
+                st.code(ai_ru, language="markdown")
             
             # Downloads
+            st.markdown("---")
             ts = datetime.now().strftime("%H%M")
             col_d1, col_d2, col_d3 = st.columns(3)
-            with col_d1: st.download_button("📄 EN", ai_en, f"websec_en_{ts}.md")
-            with col_d2: st.download_button("📄 RU", ai_ru, f"websec_ru_{ts}.md")
-            with col_d3: 
-                st.json({"url": url, "vulns": vulns, "ai_en": ai_en})
+            
+            # EN Download
+            with col_d1:
+                en_report = f"# WebSecAI Report\n**URL:** {url}\n**Vulns:** {', '.join(vulns) or 'None'}\n\n{ai_en}"
+                st.download_button("📄 EN MD", en_report, f"websec_en_{ts}.md", "text/markdown")
+            
+            # RU Download  
+            with col_d2:
+                ru_report = f"# WebSecAI Отчёт\n**URL:** {url}\n**Уязвимости:** {', '.join(vulns) or 'Нет'}\n\n{ai_ru}"
+                st.download_button("📄 RU MD", ru_report, f"websec_ru_{ts}.md", "text/markdown")
+            
+            # JSON Download
+            with col_d3:
+                json_data = {
+                    "url": url,
+                    "timestamp": datetime.now().isoformat(),
+                    "vulns": vulns,
+                    "scan_time": round(scan_time, 2),
+                    "ai_en": ai_en,
+                    "ai_ru": ai_ru
+                }
+                st.download_button("📊 JSON", json.dumps(json_data, ensure_ascii=False, indent=2), 
+                                 f"websec_full_{ts}.json", "application/json")
+
 
 # TAB 2: FAKENEWS (готово к модели)
 with tab2:
