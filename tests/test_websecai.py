@@ -69,7 +69,6 @@ class TestWebSecAI(unittest.TestCase):
 
     @patch('requests.get')
     def test_xss_detected(self, mock_get):
-        """XSS обнаружен"""
         mock_get.return_value.text = "<script>alert(1)</script>"
         mock_get.return_value.status_code = 200
         result = scan_xss("http://test.com")
@@ -77,7 +76,6 @@ class TestWebSecAI(unittest.TestCase):
 
     @patch('requests.get')
     def test_xss_dom_based(self, mock_get):
-        """XSS DOM-based"""
         mock_get.return_value.text = "<img src=x onerror=alert(1)>"
         result = scan_xss("http://test.com")
         self.assertTrue(result)
