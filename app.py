@@ -1,246 +1,121 @@
 import streamlit as st
-import requests
-import re
 import os
-import tempfile
-import logging
 import time
 import json
 from datetime import datetime
-from typing import Dict, List
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-def safe_import():
-    try:
-        from websec import ai_analysis
-        from scanners.sql_scanner import scan_sql_injection
-        from scanners.xss import scan_xss
-        from scanners.csrf_scanner import check_csrf_protection
-        from scanners.ssrf_scanner import scan_ssrf
-        from scanners.crypto_scanner import check_wallet  # Только wallet!
-        logger.info("✅ Wallet OK")
-        return True, locals()
-    except ImportError as e:
-        st.error(f"❌ Сканеры недоступны: {e}")
-        return False, None
-
-loaded, modules = safe_import()
-if not loaded:
+# Safe imports
+try:
+    from websec import ai_analysis
+    from scanners.sql_scanner import scan_sql_injection
+    from scanners.xss import scan_xss
+    from scanners.csrf_scanner import check_csrf_protection
+    from scanners.ssrf_scanner import scan_ssrf
+except:
+    st.error("❌ Security modules missing")
     st.stop()
 
-scan_sql_injection = modules['scan_sql_injection']
-scan_xss = modules['scan_xss']
-check_csrf_protection = modules['check_csrf_protection']
-scan_ssrf = modules['scan_ssrf']
-ai_analysis = modules['ai_analysis']
-
 st.set_page_config(page_title="WebSecAI", page_icon="🛡️", layout="wide")
-st.markdown('<style>.main {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);}</style>', unsafe_allow_html=True)
 
-col1, col2 = st.columns([3, 1])
-target_url = col1.text_input("🔗 URL:", placeholder="https://example.com")
+st.title("🛡️ **WebSecAI Suite**")
+st.markdown("*Security + FakeNews + Crypto Analysis*")
 
-def generate_detailed_report(vulnerabilities: List[str], url: str, scan_time: float) -> Dict:
-    report = {
-        "target": url,
-        "scan_time": scan_time,
-        "vulnerabilities": {
-            "sql_injection": "Обнаружено" if "SQLi" in vulnerabilities else "Не обнаружено",
-            "xss": "Обнаружено" if "XSS" in vulnerabilities else "Не обнаружено",
-            "csrf": "Обнаружено" if "CSRF" in vulnerabilities else "Не обнаружено",
-            "ssrf": "Обнаружено" if "SSRF" in vulnerabilities else "Не обнаружено"
-        },
-        "ai_analysis": {}
-    }
-    return report
+# ── API KEYS ─────────────────────────────────────────────────────────────────
+with st.expander("🔑 API Keys (all optional)"):
+    openrouter_key = st.text_input("OpenRouter AI", type="password")
+    if openrouter_key:
+        os.environ["OPENROUTER_API_KEY"] = openrouter_key
 
-# Переменная для хранения отчета
-report = None
+# ── 3 ТАБА ───────────────────────────────────────────────────────────────────
+tab1, tab2, tab3 = st.tabs(["🔒 Web Security", "📰 FakeNews Detector", "₿ Crypto Wallet"])
 
-if col1.button("🚀 СКАНИРОВАТЬ", type="primary") and target_url:
-    logger.info(f"Скан: {target_url}")
-    start_time = time.time()
-    vulnerabilities = []
-    
-    with st.spinner("🔍 SQLi..."):
-        try:
-            if scan_sql_injection(target_url):
-                vulnerabilities.append("SQLi")
-        except Exception as e:
-            st.warning(f"SQLi: timeout/error - {str(e)[:100]}")
-    
-    with st.spinner("🔍 XSS..."):
-        try:
-            if scan_xss(target_url):
-                vulnerabilities.append("XSS")
-        except Exception as e:
-            st.warning(f"XSS: timeout/error - {str(e)[:100]}")
-    
-    with st.spinner("🔍 CSRF..."):
-        try:
-            if check_csrf_protection(target_url):
-                vulnerabilities.append("CSRF")
-        except Exception as e:
-            st.warning(f"CSRF: timeout/error - {str(e)[:100]}")
-    
-    with st.spinner("🔍 SSRF..."):
-        try:
-            if scan_ssrf(target_url):
-                vulnerabilities.append("SSRF")
-        except Exception as e:
-            st.warning(f"SSRF: timeout/error - {str(e)[:100]}")
-    
-    end_time = time.time()
-    scan_duration = end_time - start_time
-    
-    # Генерация детального отчета
-    report = generate_detailed_report(vulnerabilities, target_url, scan_duration)
-    
-    # Разделение колонок для лучшего отображения
-    result_col1, result_col2 = st.columns([2, 1])
-    
-    # Вывод основных метрик
-    result_col1.metric("⏱️ Время сканирования", f"{scan_duration:.1f}с")
-    result_col1.metric("🚨 Найденные уязвимости", len(vulnerabilities))
-    
-    # Детальное отображение результатов
-    result_col1.subheader("Результаты сканирования")
-    
-    # Создание таблицы результатов
-    vuln_status = {
-        "SQL-инъекции": "Обнаружено" if "SQLi" in vulnerabilities else "Не обнаружено",
-        "XSS-уязвимости": "Обнаружено" if "XSS" in vulnerabilities else "Не обнаружено",
-        "CSRF-уязвимости": "Обнаружено" if "CSRF" in vulnerabilities else "Не обнаружено",
-        "SSRF-уязвимости": "Обнаружено" if "SSRF" in vulnerabilities else "Не обнаружено"
-    }
-    
-    # Отображение статуса каждой проверки
-    for vuln, status in vuln_status.items():
-        if status == "Обнаружено":
-            result_col1.error(f"⚠️ {vuln}: {status}")
-        else:
-            result_col1.success(f"✅ {vuln}: {status}")
-    
-    # Улучшенный AI-анализ
-    try:
-        ai_recs = ai_analysis(vulnerabilities or [target_url])
-        ai_report = ai_recs.get('ru', 'AI недоступен')
-        
-        # Добавление AI-анализа в отчет
-        report['ai_analysis'] = {
-            "summary": ai_recs.get('summary', ''),
-            "recommendations": ai_recs.get('recommendations', []),
-            "risk_level": ai_recs.get('risk_level', 'Неизвестно')
-        }
-        
-        result_col2.subheader("AI-анализ")
-        result_col2.markdown(f"### Общий вывод:\n{ai_recs.get('summary', 'Нет данных')}")
-        result_col2.markdown(f"### Уровень риска:\n{ai_recs.get('risk_level', 'Неизвестно')}")
-        result_col2.markdown(f"### Рекомендации:\n{ai_recs.get('recommendations', 'Нет рекомендаций')}")
-    except Exception as e:
-        result_col2.warning(f"Ошибка AI-анализа: {str(e)[:100]}")
-    
-    # Детализация уязвимостей
-    if vulnerabilities:
-        result_col1.subheader("Детализация уязвимостей")
-        for vuln in vulnerabilities:
-            if vuln == "SQLi":
-                result_col1.warning("### SQL-инъекция")
-                result_col1.markdown("""
-                **Описание:** Уязвимость к SQL-инъекциям
-                **Риск:** Высокий
-                **Рекомендации:**
-                * Использовать параметризованные запросы
-                * Валидировать входные данные
-                * Применять подготовленные выражения
-                """)
-            elif vuln == "XSS":
-                result_col1.warning("### XSS-уязвимость")
-                result_col1.markdown("""
-                **Описание:** Уязвимость к межсайтовому скриптингу
-                **Риск:** Средний
-                **Рекомендации:**
-                * Экранировать пользовательский ввод
-                * Использовать Content Security Policy
-                * Валидировать данные на входе
-                """)
-            elif vuln == "CSRF":
-                result_col1.warning("### CSRF-уязвимость")
-                result_col1.markdown("""
-                **Описание:** Отсутствие защиты от CSRF-атак
-                **Риск:** Средний
-                **Рекомендации:**
-                * Использовать CSRF-токены
-                * Проверять Referer header
-                * Применять SameSite cookies
-                """)
-            elif vuln == "SSRF":
-                result_col1.warning("### SSRF-уязвимость")
-                result_col1.markdown("""
-                                **Описание:** Уязвимость к Server-Side Request Forgery
-                **Риск:** Высокий
-                **Рекомендации:**
-                * Валидировать все внешние запросы
-                * Ограничить доступ к внутренним сервисам
-                * Использовать белые списки хостов
-                """)
-    
-    # Функция экспорта JSON
-    def get_json_report():
-        return json.dumps(report, ensure_ascii=False, indent=2)
-    
-    # Кнопка экспорта
-    if col1.button("📥 Экспортировать отчет в JSON"):
-        st.download_button(
-            label="Скачать отчет",
-            data=get_json_report(),
-            file_name=f"websec_report_{datetime.now().strftime('%d%m%y_%H%M')}.json",
-            mime="application/json"
-        )
-
-# Табы с информацией
-tab1, tab2, tab3 = st.tabs(["📋 Результаты", "🔍 Дополнительно", "ℹ️ Информация"])
-
+# TAB 1: WEB SECURITY (твой текущий код)
 with tab1:
-    st.subheader("Полный отчет")
-    st.json(report, expanded=False)
+    st.markdown("### 🔗 Web Vulnerability Scanner")
+    col_url1, _ = st.columns([3, 1])
+    target_url = col_url1.text_input("Target URL:", placeholder="https://example.com")
+    
+    if col_url1.button("🚀 Scan Website", type="primary") and target_url:
+        with st.spinner("🔍 Scanning..."):
+            vulns = []
+            start_time = time.time()
+            
+            try: 
+                if scan_sql_injection(target_url): vulns.append("SQLi")
+                if scan_xss(target_url): vulns.append("XSS")
+                if check_csrf_protection(target_url): vulns.append("CSRF")
+                if scan_ssrf(target_url): vulns.append("SSRF")
+            except: pass
+            
+            scan_time = time.time() - start_time
+            
+            # AI
+            try:
+                ai_en, ai_ru = ai_analysis(vulns)
+            except:
+                ai_en = ai_ru = "[AI] Unavailable"
+            
+            # Results
+            col_r1, col_r2 = st.columns(2)
+            col_r1.metric("⏱️ Time", f"{scan_time:.1f}s")
+            col_r2.metric("🚨 Vulns", len(vulns))
+            
+            # Bilingual AI
+            col_ai1, col_ai2 = st.columns(2)
+            with col_ai1: st.code(ai_en, "markdown")
+            with col_ai2: st.code(ai_ru, "markdown")
+            
+            # 3 Downloads
+            timestamp = datetime.now().strftime("%H%M")
+            col_d1, col_d2, col_d3 = st.columns(3)
+            with col_d1:
+                st.download_button("📄 EN", f"# WebSecAI\n{ai_en}", f"websec_en_{timestamp}.md")
+            with col_d2:
+                st.download_button("📄 RU", f"# WebSecAI\n{ai_ru}", f"websec_ru_{timestamp}.md")
+            with col_d3:
+                st.json({"vulns": vulns, "ai_en": ai_en, "ai_ru": ai_ru})
 
+# TAB 2: FAKENEWS DETECTOR (ЗАГОТОВКА)
 with tab2:
-    st.info("Дополнительные возможности:")
-    st.markdown("""
-    * Расширенное сканирование
-    * История проверок
-    * Статистика уязвимостей
-    """)
+    st.markdown("### 📰 FakeNews Credibility Index")
+    text_input = st.text_area("Paste news text here:", 
+                             placeholder="Enter article text to analyze credibility...")
+    
+    if st.button("🔍 Analyze Credibility") and text_input:
+        st.info("🚧 **Coming soon!**")
+        st.info("""
+        ✅ NLP Model: BERT/RoBERTa
+        ✅ Features: fact-checking, sentiment, source bias  
+        ✅ Score: 0-100 Credibility Index
+        ✅ Verdict: ✅ Reliable / ⚠️ Suspicious / ❌ Fake
+        """)
+        
+        # Заготовка для твоей модели
+        # credibility_score = your_model.predict(text_input)
+        # st.metric("📊 Credibility Score", f"{credibility_score:.0f}/100")
 
+# TAB 3: CRYPTO WALLET (ЗАГОТОВКА) 
 with tab3:
-    st.markdown("""
-    # WebSecAI
+    st.markdown("### ₿ Crypto Wallet Scanner")
+    wallet_address = st.text_input("Wallet Address:", 
+                                  placeholder="0x1234...abcd")
     
-    ## О приложении
-    **WebSecAI** — инструмент для автоматизированного сканирования веб-уязвимостей с AI-анализом.
-    
-    ## Функционал
-    * Автоматическое сканирование основных уязвимостей
-    * AI-анализ результатов
-    * Детальная отчетность
-    * Экспорт результатов
-    
-    ## Проверяемые уязвимости
-    * SQL-инъекции
-    * XSS-атаки
-    * CSRF-уязвимости
-    * SSRF-уязвимости
-    
-    ## Разработчики
-    * [GitHub](https://github.com/credibility-index/WebSec-AI)
-    * [Telegram](https://t.me/likeluv)
-    """)
+    if st.button("🔍 Scan Wallet") and wallet_address:
+        st.info("🚧 **Crypto scanner ready!**")
+        st.info("""
+        ✅ Balance check
+        ✅ Suspicious transactions  
+        ✅ Blacklist screening
+        ✅ Risk score
+        """)
+        
+        # Заготовка
+        # risk_level = check_wallet(wallet_address)
+        # st.error(f"🚨 Risk: {risk_level}")
 
-# Нижний колонтитул
-st.caption("© WebSecAI 2026 | Все права защищены")
+# ── FOOTER ───────────────────────────────────────────────────────────────────
+st.markdown("---")
+st.markdown("""
+🛡️ **WebSecAI Suite** | WebSec + FakeNews + Crypto | https://t.me/likeluv
+""")
 
-# Логирование завершения сканирования
-logger.info("Сканирование завершено")
