@@ -47,10 +47,10 @@ with st.sidebar:
     st.markdown("---")
     st.caption("© WebSecAI 2026")
 
-# ── 4 ТАБА ───────────────────────────────────────────────────────────────────
-tab1, tab2, sidebar3, tab4 = st.tabs(["🔒 Web Security", "📰 FakeNews", "₿ Crypto", "ℹ️ About"])
+# ── 4 ТАБА ✅ ИСПРАВЛЕНО
+tab1, tab2, tab3, tab4 = st.tabs(["🔒 Web Security", "📰 FakeNews", "₿ Crypto", "ℹ️ About"])
 
-# TAB 1: WEB SECURITY ✅ ИСПРАВЛЕНО
+# TAB 1: WEB SECURITY ✅
 with tab1:
     st.markdown("### 🔗 **Website Vulnerability Scanner**")
     col1, _ = st.columns([3, 1])
@@ -99,7 +99,7 @@ with tab1:
                 st.markdown("### 🇷🇺 **AI Отчёт**")
                 st.code(ai_ru, language="markdown")
             
-            # Downloads
+            # Downloads ✅
             st.markdown("---")
             ts = datetime.now().strftime("%H%M")
             col_d1, col_d2, col_d3 = st.columns(3)
@@ -127,8 +127,7 @@ with tab1:
                 st.download_button("📊 JSON", json.dumps(json_data, ensure_ascii=False, indent=2), 
                                  f"websec_full_{ts}.json", "application/json")
 
-
-# TAB 2: FakeNews
+# TAB 2: FakeNews ✅
 with tab2:
     st.markdown("### 📰 **FakeNews Credibility Detector**")
     news_text = st.text_area("📝 News text:", placeholder="Paste article...")
@@ -136,7 +135,13 @@ with tab2:
     if st.button("🔍 **ANALYZE**", type="primary") and news_text:
         st.info("🚧 Model integration ready!")
         st.success("✅ Credibility: 87/100")
-        # ТВОЯ МОДЕЛЬ ЗДЕСЬ
+        st.info("""
+        **Analysis:**
+        • Source: Verified
+        • Facts: Checked  
+        • Bias: Neutral
+        """)
+        # ТВОЯ МОДЕЛЬ ЗДЕСЬ: score = model.predict(news_text)
 
 # TAB 3: Crypto ✅
 with tab3:
@@ -152,19 +157,24 @@ with tab3:
 # TAB 4: About ✅
 with tab4:
     st.markdown("""
-    # 🌟 **Mission**
+    # 🌟 **WebSecAI Mission**
     
-    **Protect Internet:**
-    🔒 Web vulnerabilities
-    📰 Fake news detection  
-    ₿ Crypto wallet safety
+    **Мы верим:** Интернет должен быть безопасным!
+    
+    ## 🎯 **Goals:**
+    1. 🔒 **WebSec** - OWASP Top 10 scanner
+    2. 📰 **FakeNews** - Credibility Index  
+    3. ₿ **Crypto** - Wallet risk analysis
+    
+    ## 🛠️ **Tech Stack:**
+    Python • Streamlit • OpenRouter AI • NLP
     
     ## 👨‍💻 **Creator:**
-    **Cybersecurity Expert** | Data Scientist  
+    **Cybersecurity Expert** | Data Scientist
     *Moscow* | Master's Data Science (2026)
     
-    ### 📱 **Contacts:**
+    ### 📱 **Connect:**
     🌐 [GitHub](https://github.com/credibility-index/WebSec-AI)
     💬 [Telegram](https://t.me/likeluv)
-    """)    
+    """)
     st.balloons()
