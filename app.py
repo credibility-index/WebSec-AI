@@ -274,7 +274,7 @@ Status: {'AI' if ai_prob > 0.5 else 'Human'}
         st.markdown("**Тестируй на:** Midjourney, DALL-E, Stable Diffusion, реальные фото")
 
 # TAB 4: Crypto ✅
-with tab3:
+with tab4:
     st.markdown("### ₿ **Crypto Wallet Scanner**")
     wallet = st.text_input("Wallet:", placeholder="0x1234...")
     
@@ -285,7 +285,7 @@ with tab3:
         st.success("✅ Clean wallet")
 
 # TAB 5: About ✅
-with tab4:
+with tab5:
     st.markdown("""
     # 🌟 **WebSecAI Mission**
     
