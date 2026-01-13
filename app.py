@@ -17,7 +17,6 @@ except:
     
 # 🆕 Кэш тяжёлых моделей
 @st.cache_resource
-@st.singleton  # Только 1 экземпляр
 def load_gigachat():
     from gigachat import GigaChat
     return GigaChat(credentials=st.secrets["GIGACHAT_API_KEY"], verify_ssl_certs=False)
