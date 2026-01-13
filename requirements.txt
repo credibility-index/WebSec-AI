@@ -12,4 +12,4 @@ streamlit
 
 cryptography==42.0.8
 
-gigachat==1.0.4
+gigachat
