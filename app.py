@@ -255,7 +255,7 @@ with tab3:
                     col_score.metric("🤖 ИИ-генерация", f"{ai_prob:.1%}")
                     
                     # СТАТУС
-                    if ai_prob > 0.65:
+                    if ai_prob > 0.55:
                         col_status.metric("🎯 Итог", "🔴 **ИИ**")
                         st.error("🚨 AI-генерация!")
                     elif ai_prob < 0.35:
