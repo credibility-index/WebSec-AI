@@ -13,3 +13,11 @@ streamlit
 cryptography==42.0.8
 
 gigachat
+
+transformers 
+
+torch 
+
+torchvision 
+
+pillow 
