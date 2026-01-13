@@ -219,20 +219,20 @@ with tab2:
 # TAB 3: AI Image Detector 🖼️ 
 with tab3:
     st.markdown("### 🖼️ **AI Image Detector**")
-    st.markdown("*Stable Diffusion • Midjourney • DALL-E* 🔍")
+    st.markdown("*Stable Diffusion • Midjourney • DALL-E • Reality Check* 🔍")
     
     uploaded_image = st.file_uploader("📁 Загрузи изображение", 
-                                    type=['png','jpg','jpeg','webp'])
+                                    type=['png','jpg','jpeg','webp','heic'])
     
     col1, col2 = st.columns([1, 3])
     
     if uploaded_image is not None:
         col1.image(uploaded_image, caption="Загружено", use_column_width=True)
         
-        if col1.button("🤖 **ПРОВЕРИТЬ НА ИИ**", type="primary"):
-            with st.spinner("🔍 Анализ изображения..."):
+        if col1.button("🤖 **ПРОВЕРИТЬ НА ИИ**", type="primary", use_container_width=True):
+            with st.spinner("🔍 Сканируем на ИИ-генерацию..."):
                 try:
-                    # 🆗 ТОЛЬКО cache_resource (без singleton!)
+                    # КЭШ МОДЕЛИ
                     @st.cache_resource
                     def load_detector():
                         from transformers import pipeline
@@ -242,45 +242,62 @@ with tab3:
                     detector = load_detector()
                     from PIL import Image
                     
+                    # Обработка
                     image = Image.open(uploaded_image).convert('RGB')
                     results = detector(image)
                     
-                    # 🆗 ПРАВИЛЬНЫЙ РАСЧЁТ
-                    # Модель возвращает: label='fake'/'real', score
-                    fake_scores = [r['score'] for r in results if 'fake' in r['label'].lower()]
-                    ai_prob = max(fake_scores) if fake_scores else results[0]['score']
+                    # 🆗 ТОЧНЫЙ РАСЧЁТ (модель: fake=ИИ, real=человек)
+                    ai_scores = [r['score'] for r in results if 'fake' in r['label'].lower()]
+                    human_scores = [r['score'] for r in results if 'real' in r['label'].lower()]
                     
-                    # МЕТРИКИ
-                    col_score, col_status = st.columns(2)
-                    col_score.metric("🤖 ИИ-генерация", f"{ai_prob:.1%}")
+                    ai_prob = ai_scores[0] if ai_scores else max([1 - r['score'] for r in results[:2] if r['score'] < 0.6])
+                    human_prob = 1 - ai_prob
                     
-                    # СТАТУС
+                    # 📊 МЕТРИКИ
+                    col_score1, col_score2, col_status = st.columns([1,1,1])
+                    col_score1.metric("🤖 ИИ", f"{ai_prob:.1%}")
+                    col_score2.metric("👤 Реал", f"{human_prob:.1%}")
+                    
+                    # 🎯 СТАТУС (пороги 55%/35%)
                     if ai_prob > 0.55:
-                        col_status.metric("🎯 Итог", "🔴 **ИИ**")
-                        st.error("🚨 AI-генерация!")
+                        col_status.metric("🎯 Итог", "🔴 **ИИ-ГЕНЕРАЦИЯ**")
+                        st.error("🚨 **Midjourney/Stable Diffusion/DALL-E**")
                     elif ai_prob < 0.35:
-                        col_status.metric("🎯 Итог", "🟢 **Реал**")
-                        st.success("✅ Человеческое!")
+                        col_status.metric("🎯 Итог", "🟢 **РЕАЛЬНОЕ ФОТО**")
+                        st.success("✅ Снято камерой")
                     else:
-                        col_status.metric("🎯 Итог", "🟡 **Неясно**")
-                        st.warning("⚠️ Нужна доп. проверка")
+                        col_status.metric("🎯 Итог", "🟡 **НЕЯСНО**")
+                        st.warning("⚠️ Низкая уверенность модели")
                     
-                    # АНАЛИЗ
-                    st.markdown("### 📊 Детали модели:")
-                    for result in results:
-                        label = "🤖 ИИ" if 'fake' in result['label'].lower() else "👤 Реал"
-                        st.write(f"{label}: **{result['score']:.1%}**")
+                    # 📈 ДЕТАЛИ
+                    st.markdown("### 📊 Анализ модели:")
+                    for i, result in enumerate(results[:3]):
+                        is_ai = 'fake' in result['label'].lower()
+                        label_icon = "🤖" if is_ai else "👤"
+                        label_text = "ИИ" if is_ai else "Реал"
+                        st.write(f"{label_icon} **{label_text}**: {result['score']:.1%}")
                     
-                    st.download_button("📄 Отчёт", 
-                                     f"AI: {ai_prob:.1%}\nModel: {results[0]['label']}",
-                                     "ai_report.txt")
+                    # 📋 ОТЧЁТ
+                    report = f"""WebSecAI AI Image Report
+ИИ-генерация: {ai_prob:.1%}
+Реальное фото: {human_prob:.1%}
+Итог: {'ИИ' if ai_prob > 0.55 else 'Реал'}
+Модель: {results[0]['label']} ({results[0]['score']:.1%})"""
+                    st.download_button("📄 Скачать отчёт", report, "ai_image_report.txt")
                     
                 except Exception as e:
                     st.error(f"❌ {e}")
-                    st.info("🔧 pip install transformers torch pillow")
+                    st.info("""
+                    🔧 Зависимости:
+                    pip install transformers torch pillow
+                    """)
     else:
-        st.info("👆 Загрузи фото → 'ПРОВЕРИТЬ'")
-        st.markdown("*Midjourney/DALL-E → 🔴 | Телефон → 🟢*")
+        st.info("👆 **Загрузи PNG/JPG → 'ПРОВЕРИТЬ НА ИИ'**")
+        st.markdown("""
+        **Тестируй на:**
+        🔴 Midjourney / DALL-E / Stable Diffusion  
+        🟢 Фото с телефона / зеркалки
+        """)
 
 
 # TAB 4: Crypto ✅
