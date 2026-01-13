@@ -233,16 +233,17 @@ with tab4:
     st.balloons()
 
 # Sidebar тест 
-if st.sidebar.button("🧪 Test GigaChat"):
+if st.sidebar.button("📋 Получить модели GigaChat"):
     try:
         from gigachat import GigaChat
-        from gigachat.models import Chat
         
         gigachat = GigaChat(credentials=st.secrets["GIGACHAT_API_KEY"], verify_ssl_certs=False)
-        chat = Chat(messages=[{"role": "user", "content": "Тест GigaChat"}], model="GigaChat Pro")
-        response = gigachat.chat(chat)
-        st.success("✅ GigaChat OK!")
-        st.write(response.choices[0].message.content[:200])
+        models = gigachat.get_models()
+        
+        st.success("✅ Модели найдены!")
+        for model in models.data:
+            st.write(f"**{model.id_}** (owner: {model.owned_by})")
+            
     except Exception as e:
-        st.error(f"❌ Test failed: {e}")
+        st.error(f"❌ {e}")
 
