@@ -28,7 +28,6 @@ with st.sidebar:
     if openrouter_key:
         os.environ["OPENROUTER_API_KEY"] = openrouter_key
     
-    st.markdown("---")
     st.markdown("### 🚀 **Mission**")
     st.markdown("""
 **WebSecAI** комплексная защита цифрового пространства:
@@ -37,11 +36,12 @@ with st.sidebar:
 📰 **FakeNews** детектор фейковых новостей (GigaChat)  
 🖼️ **AI Images** распознавание ИИ-генераций  
 ₿ **Crypto** анализ криптокошельков на риски  
-    **Цель:** Сделать интернет безопаснее для всех!
-    
-    👨‍💻 **Creator:** Moscow Cybersecurity Expert
-    📱 **Telegram:** t.me/likeluv
-    🌐 **GitHub:** credibility-index/WebSec-AI
+
+**Цель:** Сделать интернет безопаснее для всех!
+
+👨‍💻 **Creator:** Moscow Cybersecurity Expert
+📱 **Telegram:** t.me/likeluv
+🌐 **GitHub:** credibility-index/WebSec-AI
     """)
     
     st.markdown("---")
