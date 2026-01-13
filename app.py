@@ -129,18 +129,71 @@ with tab1:
 
 # TAB 2: FakeNews ✅
 with tab2:
-    st.markdown("### 📰 **FakeNews Credibility Detector**")
-    news_text = st.text_area("📝 News text:", placeholder="Paste article...")
+    st.markdown("### 📰 **FakeNews Detector**")
+    st.markdown("*Powered by GigaChat Pro* 🔍")
     
-    if st.button("🔍 **ANALYZE**", type="primary") and news_text:
-        st.info("🚧 Model integration ready!")
-        st.success("✅ Credibility: 87/100")
-        st.info("""
-        **Analysis:**
-        • Source: Verified
-        • Facts: Checked  
-        • Bias: Neutral
-        """)
+    news_text = st.text_area("📝 Текст новости:", 
+                           placeholder="Вставь текст статьи...", 
+                           height=250)
+    
+    if st.button("🚀 **АНАЛИЗ ДОСТОВЕРНОСТИ**", type="primary", use_container_width=True) and news_text.strip():
+        with st.spinner("🤖 GigaChat анализирует..."):
+            try:
+                from gigachat import GigaChat
+                from gigachat.models import Chat
+                import json
+                
+                # Правильная инициализация
+                gigachat = GigaChat(credentials=st.secrets["GIGACHAT_API_KEY"], 
+                                  verify_ssl_certs=False)
+                
+                # Правильный вызов chat()
+                chat_payload = Chat(
+                    messages=[
+                        {
+                            "role": "user", 
+                            "content": f"""Проанализируй новость на достоверность. 
+ОТВЕТЬ ТОЛЬКО JSON:
+
+{{
+  "credibility": "high|medium|low",
+  "score": 85,
+  "reason": "Объяснение (2-3 предложения)",
+  "fake_probability": 0.23,
+  "recommendation": "доверять|проверить|не доверять"
+}}
+
+ТЕКСТ: {news_text[:2000]}"""
+                        }
+                    ],
+                    model="GigaChat Pro"
+                )
+                
+                response = gigachat.chat(chat_payload)
+                
+                # Парсим JSON
+                result_text = response.choices[0].message.content.strip()
+                result = json.loads(result_text)
+                
+                # Метрики
+                col1, col2 = st.columns(2)
+                col1.metric("📊 Достоверность", f"{result['score']}/100")
+                col2.metric("⚠️ Риск фейка", f"{result['fake_probability']:.0%}")
+                
+                st.markdown("### 🎯 **Анализ GigaChat**")
+                st.json(result)
+                
+                # Статус
+                status_emojis = {"high": "🟢", "medium": "🟡", "low": "🔴"}
+                st.markdown(f"**Статус:** {status_emojis.get(result['credibility'], '⚪')} **{result['credibility'].upper()}**")
+                
+            except json.JSONDecodeError:
+                st.error("❌ GigaChat вернул не JSON")
+                st.code(response.choices[0].message.content)
+            except Exception as e:
+                st.error(f"❌ Ошибка: {e}")
+                st.info("🔧 Обнови токен или проверь pip install gigachat")
+
         # ТВОЯ МОДЕЛЬ ЗДЕСЬ: score = model.predict(news_text)
 
 # TAB 3: Crypto ✅
