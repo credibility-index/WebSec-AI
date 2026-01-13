@@ -178,3 +178,16 @@ with tab4:
     💬 [Telegram](https://t.me/likeluv)
     """)
     st.balloons()
+
+# ТЕСТ GigaChat — добавь в конец app.py
+if st.sidebar.button("🧪 Test GigaChat"):
+    try:
+        from gigachat import GigaChat
+        from gigachat.models import Messages, MessagesRole
+        
+        client = GigaChat(credentials=st.secrets["GIGACHAT_API_KEY"], verify_ssl_certs=False)
+        response = client.chat(messages=[Messages(role=MessagesRole.USER.value, content="Тест: проанализируй фейк-новость")])
+        st.success("✅ GigaChat работает!")
+        st.write(response.choices[0].message.content)
+    except Exception as e:
+        st.error(f"❌ Ошибка: {e}")
