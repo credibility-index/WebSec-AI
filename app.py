@@ -128,73 +128,78 @@ with tab1:
                                  f"websec_full_{ts}.json", "application/json")
 
 # TAB 2: FakeNews ✅
-# TAB 2: FakeNews ✅ РАБОТАЕТ!
 with tab2:
-    st.markdown("### 📰 **FakeNews Detector**")
-    st.markdown("*Powered by GigaChat 2 Pro* 🔍")
+    st.markdown("### 📰 **FakeNews Detector** ✅ LIVE")
+    st.markdown("*GigaChat 2 Pro • Real-time analysis*")
     
     news_text = st.text_area("📝 Текст новости:", 
-                           placeholder="Вставь текст статьи для проверки на фейк...", 
+                           placeholder="Вставь новость для проверки...", 
                            height=250)
     
-    if st.button("🚀 **АНАЛИЗ ДОСТОВЕРНОСТИ**", type="primary", use_container_width=True) and news_text.strip():
-        with st.spinner("🤖 GigaChat 2 Pro анализирует..."):
+    if st.button("🚀 **АНАЛИЗ**", type="primary", use_container_width=True) and news_text.strip():
+        with st.spinner("🤖 Анализируем достоверность..."):
             try:
                 from gigachat import GigaChat
                 from gigachat.models import Chat
                 import json
+                import re
                 
-                gigachat = GigaChat(credentials=st.secrets["GIGACHAT_API_KEY"], 
-                                  verify_ssl_certs=False)
+                gigachat = GigaChat(credentials=st.secrets["GIGACHAT_API_KEY"], verify_ssl_certs=False)
                 
                 chat = Chat(
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": f"""Проанализируй НОВОСТЬ на достоверность. 
-                            
-**ОТВЕЧАЙ ТОЛЬКО JSON:**
+                    messages=[{
+                        "role": "user",
+                        "content": f"""Проанализируй НОВОСТЬ. ОТВЕТЬ ТОЛЬКО JSON:
 
 {{
   "credibility": "high|medium|low",
   "score": 85,
-  "reason": "2-3 предложения анализа",
+  "reason": "2-3 предложения", 
   "fake_probability": 0.23,
   "recommendation": "доверять|проверить|не доверять"
 }}
 
-ТЕКСТ: {news_text[:1500]}"""
-                        }
-                    ],
-                    model="GigaChat-2-Pro"  # ✅ ПРАВИЛЬНАЯ МОДЕЛЬ!
+НОВОСТЬ: {news_text[:1500]}"""
+                    }]
                 )
                 
                 response = gigachat.chat(chat)
-                result_text = response.choices[0].message.content.strip()
+                raw_response = response.choices[0].message.content.strip()
                 
-                # Парсинг
-                try:
-                    result = json.loads(result_text)
-                except:
-                    result = {"raw": result_text, "parsed": False}
+                # 🆕 УМНЫЙ ПАРСИНГ JSON (извлекает из ```json ... ```)
+                json_match = re.search(r'```json\s*(\{.*?\})\s*```', raw_response, re.DOTALL)
+                if json_match:
+                    result_text = json_match.group(1)
+                else:
+                    result_text = raw_response  # сырой текст
                 
-                # Красивый вывод
-                col1, col2 = st.columns(2)
-                if isinstance(result.get('score'), (int, float)):
-                    col1.metric("📊 Достоверность", f"{result['score']}/100")
-                if isinstance(result.get('fake_probability'), (int, float)):
-                    col2.metric("⚠️ Риск фейка", f"{result['fake_probability']:.0%}")
+                result = json.loads(result_text)
                 
-                st.markdown("### 🎯 **Анализ GigaChat**")
-                st.json(result)
+                # 📊 КРАСИВЫЕ МЕТРИКИ
+                col1, col2, col3 = st.columns(3)
+                col1.metric("📊 Достоверность", f"{result['score']}/100")
+                col2.metric("⚠️ Риск фейка", f"{result['fake_probability']:.0%}")
+                col3.metric("🎯 Статус", result['credibility'].upper())
                 
-                status_map = {"high": "🟢 Высокая", "medium": "🟡 Средняя", "low": "🔴 Низкая"}
-                cred = result.get('credibility', 'unknown')
-                st.markdown(f"**✅ Итог:** {status_map.get(cred, '⚪ Неизвестно')} **{cred.upper()}**")
+                # 🎨 СТАТУСНЫЙ БЛОК
+                status_colors = {"high": "🟢", "medium": "🟡", "low": "🔴"}
+                st.markdown(f"""
+                ## **{status_colors.get(result['credibility'], '⚪')} {result['credibility'].upper()}**
+                **Рекомендация:** {result['recommendation']}
+                **Обоснование:** {result['reason']}
+                """)
+                
+                # 📋 ПОЛНЫЙ ОТВЕТ
+                with st.expander("📄 Полный отчёт GigaChat"):
+                    st.code(raw_response)
+                
+                # 💾 СКАЧАТЬ
+                st.download_button("📥 JSON отчёт", 
+                                 json.dumps(result, ensure_ascii=False, indent=2),
+                                 f"fakenews_{result['score']}.json")
                 
             except Exception as e:
                 st.error(f"❌ {e}")
-                st.info("🔧 Модели: GigaChat-2-Pro, GigaChat-2-Lite, GigaChat:latest")
 
 # TAB 3: Crypto ✅
 with tab3:
