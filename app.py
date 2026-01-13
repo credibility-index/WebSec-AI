@@ -46,8 +46,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.caption("© WebSecAI 2026")
-
-# ── 4 ТАБА ✅ ИСПРАВЛЕНО
+ 
 tab1, tab2, tab3, tab4 = st.tabs(["🔒 Web Security", "📰 FakeNews", "₿ Crypto", "ℹ️ About"])
 
 # TAB 1: WEB SECURITY ✅
