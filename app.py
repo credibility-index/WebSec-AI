@@ -47,7 +47,7 @@ with st.sidebar:
     st.markdown("---")
     st.caption("© WebSecAI 2026")
  
-tab1, tab2, tab3, tab4 = st.tabs(["🔒 Web Security", "📰 FakeNews", "₿ Crypto", "ℹ️ About"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔒 Web Security", "📰 FakeNews", "🖼️ AI Images", "₿ Crypto", "ℹ️ About"])
 
 # TAB 1: WEB SECURITY ✅
 with tab1:
@@ -199,8 +199,81 @@ with tab2:
                 
             except Exception as e:
                 st.error(f"❌ {e}")
+# TAB 3: AI Image Detector 🖼️
+with tab3:
+    st.markdown("### 🖼️ **AI Image Detector**")
+    st.markdown("*Stable Diffusion • Midjourney • DALL-E* 🔍")
+    
+    uploaded_image = st.file_uploader("📁 Загрузи изображение", 
+                                    type=['png','jpg','jpeg','webp'],
+                                    help="PNG/JPG до 10MB")
+    
+    col1, col2 = st.columns([1, 3])
+    
+    if uploaded_image is not None:
+        # Показываем изображение
+        col1.image(uploaded_image, caption="Загружено", use_column_width=True)
+        
+        if col1.button("🤖 **ПРОВЕРИТЬ НА ИИ**", type="primary"):
+            with st.spinner("🔍 Анализ изображения..."):
+                try:
+                    from PIL import Image
+                    from transformers import pipeline
+                    import numpy as np
+                    
+                    # Модель детектора (загружается ~30 сек первый раз)
+                    detector = pipeline("image-classification",
+                                      model="umm-maybe/AI-image-detector")
+                    
+                    # Конвертация
+                    image = Image.open(uploaded_image).convert('RGB')
+                    
+                    # Предсказание
+                    results = detector(image)
+                    
+                    # AI вероятность (переворачиваем если нужно)
+                    ai_result = results[0]
+                    ai_prob = ai_result['score'] if ai_result['label'] == 'ai' else (1 - ai_result['score'])
+                    
+                    # Результаты
+                    col_score, col_status = st.columns(2)
+                    col_score.metric("🤖 Вероятность ИИ", f"{ai_prob:.1%}")
+                    
+                    if ai_prob > 0.6:
+                        col_status.metric("🎯 Итог", "🔴 **AI-ГЕНЕРАЦИЯ**")
+                        st.error("🚨 Изображение сгенерировано ИИ!")
+                    elif ai_prob < 0.4:
+                        col_status.metric("🎯 Итог", "🟢 **ЧЕЛОВЕЧЕСКОЕ**")
+                        st.success("✅ Реальное фото")
+                    else:
+                        col_status.metric("🎯 Итог", "🟡 **НЕТочно**")
+                        st.warning("⚠️ Сложно определить")
+                    
+                    # Детали
+                    st.markdown("### 📊 Детальный анализ:")
+                    for result in results[:3]:
+                        label = "🤖 ИИ" if result['label'] == 'ai' else "👤 Человек"
+                        st.write(f"{label}: **{result['score']:.1%}**")
+                    
+                    # Сохранить отчёт
+                    report = f"""WebSecAI AI Image Report
+AI Probability: {ai_prob:.1%}
+Model: {ai_result['label']} ({ai_result['score']:.1%})
+Status: {'AI' if ai_prob > 0.5 else 'Human'}
+"""
+                    st.download_button("📄 Отчёт", report, "ai_image_report.txt")
+                    
+                except Exception as e:
+                    st.error(f"❌ {e}")
+                    st.info("""
+                    🔧 Установи зависимости:
+                    pip install transformers torch torchvision pillow
+                    """)
+    else:
+        st.info("👆 Загрузи изображение и нажми 'ПРОВЕРИТЬ НА ИИ'")
+        st.markdown("**Тестируй на:** Midjourney, DALL-E, Stable Diffusion, реальные фото")
 
-# TAB 3: Crypto ✅
+# TAB 4: Crypto ✅
 with tab3:
     st.markdown("### ₿ **Crypto Wallet Scanner**")
     wallet = st.text_input("Wallet:", placeholder="0x1234...")
@@ -211,7 +284,7 @@ with tab3:
         col2.metric("🚨 Risk", "12/100")
         st.success("✅ Clean wallet")
 
-# TAB 4: About ✅
+# TAB 5: About ✅
 with tab4:
     st.markdown("""
     # 🌟 **WebSecAI Mission**
