@@ -128,92 +128,73 @@ with tab1:
                                  f"websec_full_{ts}.json", "application/json")
 
 # TAB 2: FakeNews ✅
-# TAB 2: FakeNews ✅ ИСПРАВЛЕНО
+# TAB 2: FakeNews ✅ РАБОТАЕТ!
 with tab2:
     st.markdown("### 📰 **FakeNews Detector**")
-    st.markdown("*Powered by GigaChat Pro* 🔍")
+    st.markdown("*Powered by GigaChat 2 Pro* 🔍")
     
     news_text = st.text_area("📝 Текст новости:", 
-                           placeholder="Вставь текст статьи...", 
+                           placeholder="Вставь текст статьи для проверки на фейк...", 
                            height=250)
     
     if st.button("🚀 **АНАЛИЗ ДОСТОВЕРНОСТИ**", type="primary", use_container_width=True) and news_text.strip():
-        with st.spinner("🤖 GigaChat анализирует..."):
+        with st.spinner("🤖 GigaChat 2 Pro анализирует..."):
             try:
                 from gigachat import GigaChat
                 from gigachat.models import Chat
                 import json
                 
-                # Правильная инициализация клиента
                 gigachat = GigaChat(credentials=st.secrets["GIGACHAT_API_KEY"], 
                                   verify_ssl_certs=False)
                 
-                # Создаём Chat объект
                 chat = Chat(
                     messages=[
                         {
                             "role": "user",
-                            "content": f"""Проанализируй текст НОВОСТИ на достоверность.
+                            "content": f"""Проанализируй НОВОСТЬ на достоверность. 
                             
-ОТВЕТЬ ТОЛЬКО JSON в ОДНОЙ СТРОКЕ:
+**ОТВЕЧАЙ ТОЛЬКО JSON:**
 
 {{
   "credibility": "high|medium|low",
   "score": 85,
-  "reason": "2-3 предложения объяснения", 
+  "reason": "2-3 предложения анализа",
   "fake_probability": 0.23,
   "recommendation": "доверять|проверить|не доверять"
 }}
 
-ТЕКСТ АНАЛИЗА:
-{news_text[:1500]}"""
+ТЕКСТ: {news_text[:1500]}"""
                         }
                     ],
-                    model="GigaChat Pro"
+                    model="GigaChat-2-Pro"  # ✅ ПРАВИЛЬНАЯ МОДЕЛЬ!
                 )
                 
-                # Правильный вызов chat()
                 response = gigachat.chat(chat)
-                
-                # Извлекаем ответ
                 result_text = response.choices[0].message.content.strip()
                 
-                # Парсим JSON (с обработкой)
+                # Парсинг
                 try:
                     result = json.loads(result_text)
                 except:
-                    # Если не JSON — парсим вручную
-                    result = {
-                        "raw_response": result_text,
-                        "status": "processing"
-                    }
+                    result = {"raw": result_text, "parsed": False}
                 
-                # Метрики и результаты
+                # Красивый вывод
                 col1, col2 = st.columns(2)
-                if 'score' in result:
+                if isinstance(result.get('score'), (int, float)):
                     col1.metric("📊 Достоверность", f"{result['score']}/100")
-                    col2.metric("⚠️ Риск фейка", f"{result.get('fake_probability', 0):.0%}")
+                if isinstance(result.get('fake_probability'), (int, float)):
+                    col2.metric("⚠️ Риск фейка", f"{result['fake_probability']:.0%}")
                 
-                st.markdown("### 🎯 **Результат GigaChat**")
+                st.markdown("### 🎯 **Анализ GigaChat**")
                 st.json(result)
                 
-                # Цветной статус
-                status_emojis = {"high": "🟢", "medium": "🟡", "low": "🔴"}
-                if 'credibility' in result:
-                    st.markdown(f"**✅ Статус:** {status_emojis.get(result['credibility'], '⚪')} **{result['credibility'].upper()}**")
-                
-                # Скачать отчёт
-                report_data = json.dumps(result, ensure_ascii=False, indent=2)
-                st.download_button("📄 Отчёт JSON", report_data, "fakenews_analysis.json")
+                status_map = {"high": "🟢 Высокая", "medium": "🟡 Средняя", "low": "🔴 Низкая"}
+                cred = result.get('credibility', 'unknown')
+                st.markdown(f"**✅ Итог:** {status_map.get(cred, '⚪ Неизвестно')} **{cred.upper()}**")
                 
             except Exception as e:
-                st.error(f"❌ Ошибка GigaChat: {str(e)}")
-                st.info("""
-                🔧 Возможные причины:
-                1. Токен истёк — обнови на developers.sber.ru/gigachat
-                2. pip install gigachat --upgrade
-                3. Проверь secrets.toml
-                """)
+                st.error(f"❌ {e}")
+                st.info("🔧 Модели: GigaChat-2-Pro, GigaChat-2-Lite, GigaChat:latest")
 
 # TAB 3: Crypto ✅
 with tab3:
