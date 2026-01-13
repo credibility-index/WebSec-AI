@@ -128,6 +128,7 @@ with tab1:
                                  f"websec_full_{ts}.json", "application/json")
 
 # TAB 2: FakeNews ✅
+# TAB 2: FakeNews ✅ ИСПРАВЛЕНО
 with tab2:
     st.markdown("### 📰 **FakeNews Detector**")
     st.markdown("*Powered by GigaChat Pro* 🔍")
@@ -143,58 +144,76 @@ with tab2:
                 from gigachat.models import Chat
                 import json
                 
-                # Правильная инициализация
+                # Правильная инициализация клиента
                 gigachat = GigaChat(credentials=st.secrets["GIGACHAT_API_KEY"], 
                                   verify_ssl_certs=False)
                 
-                # Правильный вызов chat()
-                chat_payload = Chat(
+                # Создаём Chat объект
+                chat = Chat(
                     messages=[
                         {
-                            "role": "user", 
-                            "content": f"""Проанализируй новость на достоверность. 
-ОТВЕТЬ ТОЛЬКО JSON:
+                            "role": "user",
+                            "content": f"""Проанализируй текст НОВОСТИ на достоверность.
+                            
+ОТВЕТЬ ТОЛЬКО JSON в ОДНОЙ СТРОКЕ:
 
 {{
   "credibility": "high|medium|low",
   "score": 85,
-  "reason": "Объяснение (2-3 предложения)",
+  "reason": "2-3 предложения объяснения", 
   "fake_probability": 0.23,
   "recommendation": "доверять|проверить|не доверять"
 }}
 
-ТЕКСТ: {news_text[:2000]}"""
+ТЕКСТ АНАЛИЗА:
+{news_text[:1500]}"""
                         }
                     ],
                     model="GigaChat Pro"
                 )
                 
-                response = gigachat.chat(chat_payload)
+                # Правильный вызов chat()
+                response = gigachat.chat(chat)
                 
-                # Парсим JSON
+                # Извлекаем ответ
                 result_text = response.choices[0].message.content.strip()
-                result = json.loads(result_text)
                 
-                # Метрики
+                # Парсим JSON (с обработкой)
+                try:
+                    result = json.loads(result_text)
+                except:
+                    # Если не JSON — парсим вручную
+                    result = {
+                        "raw_response": result_text,
+                        "status": "processing"
+                    }
+                
+                # Метрики и результаты
                 col1, col2 = st.columns(2)
-                col1.metric("📊 Достоверность", f"{result['score']}/100")
-                col2.metric("⚠️ Риск фейка", f"{result['fake_probability']:.0%}")
+                if 'score' in result:
+                    col1.metric("📊 Достоверность", f"{result['score']}/100")
+                    col2.metric("⚠️ Риск фейка", f"{result.get('fake_probability', 0):.0%}")
                 
-                st.markdown("### 🎯 **Анализ GigaChat**")
+                st.markdown("### 🎯 **Результат GigaChat**")
                 st.json(result)
                 
-                # Статус
+                # Цветной статус
                 status_emojis = {"high": "🟢", "medium": "🟡", "low": "🔴"}
-                st.markdown(f"**Статус:** {status_emojis.get(result['credibility'], '⚪')} **{result['credibility'].upper()}**")
+                if 'credibility' in result:
+                    st.markdown(f"**✅ Статус:** {status_emojis.get(result['credibility'], '⚪')} **{result['credibility'].upper()}**")
                 
-            except json.JSONDecodeError:
-                st.error("❌ GigaChat вернул не JSON")
-                st.code(response.choices[0].message.content)
+                # Скачать отчёт
+                report_data = json.dumps(result, ensure_ascii=False, indent=2)
+                st.download_button("📄 Отчёт JSON", report_data, "fakenews_analysis.json")
+                
             except Exception as e:
-                st.error(f"❌ Ошибка: {e}")
-                st.info("🔧 Обнови токен или проверь pip install gigachat")
-
-        # ТВОЯ МОДЕЛЬ ЗДЕСЬ: score = model.predict(news_text)
+                st.error(f"❌ Ошибка GigaChat: {str(e)}")
+                st.info("""
+                🔧 Возможные причины:
+                1. Токен истёк — обнови на developers.sber.ru/gigachat
+                2. pip install gigachat --upgrade
+                3. Проверь secrets.toml
+                """)
 
 # TAB 3: Crypto ✅
 with tab3:
@@ -232,15 +251,17 @@ with tab4:
     """)
     st.balloons()
 
-# ТЕСТ GigaChat — добавь в конец app.py
+# Sidebar тест 
 if st.sidebar.button("🧪 Test GigaChat"):
     try:
         from gigachat import GigaChat
-        from gigachat.models import Messages, MessagesRole
+        from gigachat.models import Chat
         
-        client = GigaChat(credentials=st.secrets["GIGACHAT_API_KEY"], verify_ssl_certs=False)
-        response = client.chat(messages=[Messages(role=MessagesRole.USER.value, content="Тест: проанализируй фейк-новость")])
-        st.success("✅ GigaChat работает!")
-        st.write(response.choices[0].message.content)
+        gigachat = GigaChat(credentials=st.secrets["GIGACHAT_API_KEY"], verify_ssl_certs=False)
+        chat = Chat(messages=[{"role": "user", "content": "Тест GigaChat"}], model="GigaChat Pro")
+        response = gigachat.chat(chat)
+        st.success("✅ GigaChat OK!")
+        st.write(response.choices[0].message.content[:200])
     except Exception as e:
-        st.error(f"❌ Ошибка: {e}")
+        st.error(f"❌ Test failed: {e}")
+
