@@ -47,7 +47,8 @@ with st.sidebar:
     st.markdown("""
 **WebSecAI** комплексная защита цифрового пространства:
 
-🔒 **WebSec** сканирование сайтов на OWASP Top 10  
+🔒 **WebSec** сканирование сайтов на OWASP Top 10 
+📰 **Corpus Builder** сбор корпуса новостей для анализа  
 📰 **FakeNews** детектор фейковых новостей (GigaChat)  
 🖼️ **AI Images** распознавание ИИ-генераций  
 ₿ **Crypto** анализ криптокошельков на риски  
@@ -60,9 +61,9 @@ with st.sidebar:
     """)
     
     st.markdown("---")
-    st.caption("© WebSecAI 2026")
- 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔒 Web Security", "📰 FakeNews", "🖼️ AI Images", "₿ Crypto", "ℹ️ About"])
+    st.caption("© WebSecAI 2026
+               
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🔒 Web Security", "📰 Corpus Builder", "📰 FakeNews", "🖼️ AI Images", "₿ Crypto", "ℹ️ About"])
 
 # TAB 1: WEB SECURITY ✅
 with tab1:
