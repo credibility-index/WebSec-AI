@@ -1,65 +1,49 @@
 import os
 import json
-import concurrent.futures 
 import time
 from typing import List, Tuple, Optional, Dict
 from datetime import datetime
+import concurrent.futures
+import requests
 
-# Глобальные переменные
-client = None
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+# Fallback сканеры (если нет scanners/)
+def scan_sql_injection(url): return False
+def scan_xss(url): return False
+def check_csrf_protection(url): return False
+def scan_ssrf(url): return False
+def scan_network_segmentation(url): return []
 
-# Импорты сканеров с graceful fallback
+# Загрузка реальных сканеров
 try:
     from scanners.sql_scanner import scan_sql_injection
     from scanners.xss import scan_xss
     from scanners.csrf_scanner import check_csrf_protection
     from scanners.ssrf_scanner import scan_ssrf
     from scanners.network_scanner import scan_network_segmentation
-    print("✅ Все сканеры загружены")
-except ImportError as e:
-    print(f"⚠️ Ошибка импорта сканеров: {e}")
-    # Fallback функции
-    def scan_sql_injection(url): return False
-    def scan_xss(url): return False
-    def check_csrf_protection(url): return False
-    def scan_ssrf(url): return False
-    def scan_network_segmentation(url): return []
+    print("✅ Real scanners loaded")
+except ImportError:
+    print("⚠️ Using fallback scanners")
 
 def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
-    """
-    Простой fallback AI-анализ (без OpenAI для стабильности).
-    """
     if not vulnerabilities:
-        return (
-            "✅ No critical vulnerabilities detected.",
-            "✅ Критических уязвимостей не найдено."
-        )
-    
-    vulns_str = ", ".join(vulnerabilities)
+        return ("✅ Clean scan", "✅ Чистый скан")
+    vulns = ", ".join(vulnerabilities)
     return (
-        f"🚨 Found: {vulns_str}. Prioritize fixes: HIGH risk.",
-        f"🚨 Обнаружено: {vulns_str}. Приоритет исправления: ВЫСОКИЙ."
+        f"🚨 Risks: {vulns}. Fix immediately!",
+        f"🚨 Риски: {vulns}. Исправьте срочно!"
     )
 
- 
-
-def full_scan(url: str, timeout: float = 3.0, max_workers: int = 4) -> Dict:
-    """
-    ⚡ Быстрое параллельное сканирование с таймаутами.
-    """
-    print(f"🔍 Fast scan {url} (timeout={timeout}s)...")
+def full_scan(url: str, timeout: float = 4.0, max_workers: int = 4) -> Dict:
+    print(f"🔍 Scanning {url}...")
     results = {
         "timestamp": datetime.now().isoformat(),
         "target": url,
         "vulnerabilities": [],
-        "metrics": {},
-        "ai_analysis": {"en": "", "ru": ""}
+        "metrics": {}
     }
     
     t0 = time.time()
     
-    # Список сканеров с аргументами
     scanners = [
         ("SQLi", scan_sql_injection, [url]),
         ("XSS", scan_xss, [url]),
@@ -67,170 +51,68 @@ def full_scan(url: str, timeout: float = 3.0, max_workers: int = 4) -> Dict:
         ("SSRF", scan_ssrf, [url])
     ]
     
-    # ПАРАЛЛЕЛЬНОЕ выполнение (⚡ x4 быстрее!)
+    # ⚡ Параллельно
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(func, *args): name 
-                  for name, func, args in scanners}
+        futures = {executor.submit(func, *args): name for name, func, args in scanners}
         
         for future in concurrent.futures.as_completed(futures):
             name = futures[future]
             try:
                 detected = future.result(timeout=timeout)
-                status = '🟡 DETECTED' if detected else '🟢 CLEAN'
-                print(f"  {name}: {status} ({timeout}s)")
                 if detected:
                     results["vulnerabilities"].append(name)
-            except concurrent.futures.TimeoutError:
-                print(f"  {name}: ⏱️ TIMEOUT ({timeout}s)")
-            except Exception as e:
-                print(f"  {name}: ❌ {str(e)[:30]}")
+                print(f"  {name}: {'🟡 HIT' if detected else '🟢 OK'}")
+            except:
+                print(f"  {name}: ⏱️ Timeout")
     
-    # Network (быстро)
-    try:
-        net_issues = scan_network_segmentation(url)
-        if net_issues:
-            results["vulnerabilities"].extend([f"Network: {issue}" for issue in net_issues])
-    except:
-        pass
-    
-    # Метрики
     scan_time = time.time() - t0
     results["metrics"] = {
         "scan_time": round(scan_time, 1),
         "vuln_count": len(results["vulnerabilities"]),
-        "security_score": max(0, 100 - len(results["vulnerabilities"]) * 20)
+        "score": max(0, 100 - len(results["vulnerabilities"]) * 25)
     }
     
-    # AI (быстро)
-    results["ai_analysis"]["en"], results["ai_analysis"]["ru"] = ai_analysis(
-        results["vulnerabilities"]
-    )
-    
-    print(f"✅ Scan complete: {scan_time:.1f}s")
-    return results
-
-        
-    except KeyboardInterrupt:
-        print("\n👋 Сканирование прервано пользователем")
-        results["status"] = "interrupted"
-    except Exception as e:
-        print(f"💥 Ошибка при сканировании: {str(e)}")
-        results["error"] = str(e)
+    results["ai_analysis"] = {"en": "", "ru": ""}
+    results["ai_analysis"]["en"], results["ai_analysis"]["ru"] = ai_analysis(results["vulnerabilities"])
     
     return results
 
 def generate_reports(results: Dict) -> None:
-    """Генерирует подробные MD/JSON/TXT отчеты."""
     ts = datetime.now().strftime("%Y%m%d_%H%M")
     os.makedirs("reports", exist_ok=True)
     
     vulns = results["vulnerabilities"]
     metrics = results["metrics"]
     
-    # ПОДРОБНЫЙ Markdown EN
-    detailed_en = f"""# 🛡️ WebSecAI Professional Report v2.0
+    # EN Report
+    en_md = f"""# WebSecAI Report
+Target: {results["target"]}
+Vulns: {len(vulns)} | Score: {metrics["score"]}/100
 
-## 🎯 Target: {results["target"]}
-**Timestamp:** {results["timestamp"]}  
-**Duration:** {metrics["scan_time"]}s
-
-## 📊 Executive Summary
-| Metric | Value |
-|--------|-------|
-| **Vulnerabilities** | {len(vulns)} |
-| **Security Score** | {metrics["security_score"]}/100 |
-| **Risk Level** | {'🔴 CRITICAL' if len(vulns)>=3 else '🟡 HIGH' if len(vulns)==2 else '🟢 MEDIUM'} |
-
-## 🚨 Detailed Findings
-{vulns and "\\n".join([f"• **{v}** - OWASP Top 10" for v in vulns]) or "✅ No vulnerabilities detected"}
-
-## 🤖 AI Security Analysis
-{results["ai_analysis"]["en"]}
-
----
-**Generated by** WebSecAI Suite | GitHub: credibility-index/WebSec-AI
-"""
+AI: {results["ai_analysis"]["en"]}"""
     
-    # ПОДРОБНЫЙ Markdown RU  
-    detailed_ru = f"""# 🛡️ Профессиональный Отчёт WebSecAI v2.0
+    # RU Report  
+    ru_md = f"""# Отчёт WebSecAI
+Цель: {results["target"]}
+Уязвимостей: {len(vulns)} | Оценка: {metrics["score"]}/100
 
-## 🎯 Цель: {results["target"]}
-**Время:** {results["timestamp"]}  
-**Длительность:** {metrics["scan_time"]}с
-
-## 📊 Сводка
-| Метрика | Значение |
-|---------|----------|
-| **Уязвимостей** | {len(vulns)} |
-| **Оценка** | {metrics["security_score"]}/100 |
-| **Риск** | {'🔴 КРИТИЧЕСКИЙ' if len(vulns)>=3 else '🟡 ВЫСОКИЙ' if len(vulns)==2 else '🟢 СРЕДНИЙ'} |
-
-## 🚨 Детальные Результаты
-{vulns and "\\n".join([f"• **{v}** - OWASP Top 10" for v in vulns]) or "✅ Уязвимости не обнаружены"}
-
-## 🤖 AI Анализ
-{results["ai_analysis"]["ru"]}
-
----
-**Сгенерировано** WebSecAI Suite | t.me/likeluv
-"""
+AI: {results["ai_analysis"]["ru"]}"""
     
-    # TXT для логов/Telegram
-    txt_report = f"""WebSecAI SCAN REPORT {ts}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-TARGET: {results["target"]}
-VULNS: {len(vulns)} | SCORE: {metrics["security_score"]}/100
-TIME: {metrics["scan_time"]}s
-
-FINDINGS:
-{chr(10).join(vulns) or "✅ CLEAN"}
-
-AI: {results["ai_analysis"]["en"][:200]}...
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GitHub: credibility-index/WebSec-AI
-"""
+    # TXT
+    txt = f"WebSecAI {ts}\nTarget: {results['target']}\nVulns: {len(vulns)}\n{results['ai_analysis']['ru']}"
     
-    # Сохранение ВСЕХ форматов
-    formats = [
-        (f"websec_en_{ts}.md", detailed_en),
-        (f"websec_ru_{ts}.md", detailed_ru),
-        (f"websec_full_{ts}.json", json.dumps(results, ensure_ascii=False, indent=2)),
-        (f"websec_txt_{ts}.txt", txt_report)
-    ]
+    with open(f"reports/en_{ts}.md", "w") as f: f.write(en_md)
+    with open(f"reports/ru_{ts}.md", "w") as f: f.write(ru_md)
+    with open(f"reports/report_{ts}.json", "w") as f: json.dump(results, f, indent=2)
+    with open(f"reports/txt_{ts}.txt", "w") as f: f.write(txt)
     
-    for filename, content in formats:
-        with open(f"reports/{filename}", "w", encoding="utf-8") as f:
-            f.write(content)
-    
-    print(f"✅ 4 отчёта сохранены:")
-    print(f"   📄 reports/websec_en_{ts}.md")
-    print(f"   📄 reports/websec_ru_{ts}.md") 
-    print(f"   📊 reports/websec_full_{ts}.json")
-    print(f"   📝 reports/websec_txt_{ts}.txt")
-
+    print(f"✅ Reports: en/ru_{ts}.md + json/txt")
 
 def main():
-    """CLI вход."""
-    print("\n=== 🛡️ WebSecAI v2.0 ===")
-    target = input("🎯 URL: ").strip()
-    if not target.startswith(('http://', 'https://')):
-        print("❌ Invalid URL")
-        return
-    
-    results = full_scan(target)
-    print(f"\n📊 Vulns: {len(results['vulnerabilities'])} | Score: {results['metrics']['security_score']}")
+    print("🛡️ WebSecAI v2.0")
+    url = input("URL: ")
+    results = full_scan(url)
     generate_reports(results)
 
-def scan_crypto_wallet(address: str) -> bool:
-    """Демо крипто-сканер."""
-    invalid_patterns = ['0x0*', 'bc1q0*']
-    return any(pattern in address for pattern in invalid_patterns)
-
 if __name__ == "__main__":
-    try:
-        os.makedirs("reports", exist_ok=True)
-        main()
-    except Exception as e:
-        print(f"💥 Error: {str(e)}")
+    main()
