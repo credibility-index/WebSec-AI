@@ -235,6 +235,12 @@ def main():
         print("\n👋 Scan interrupted")
     except Exception as e:
         print(f"💥 Error: {e}")
+def scan_crypto_wallet(address: str) -> bool:
+    """Простая проверка крипто-кошелька (заглушка)"""
+    # TODO: Etherscan API + blacklist
+    if not address.startswith(('0x', 'bc1', '1', '3')):
+        return True  # Invalid format = risk
+    return False  # Demo clean
 
 if __name__ == "__main__":
     main()
