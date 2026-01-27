@@ -13,7 +13,6 @@ try:
     from scanners.xss import scan_xss
     from scanners.csrf_scanner import check_csrf_protection
     from scanners.ssrf_scanner import scan_ssrf
-    st.success(result)
     st.success("✅ All security modules loaded")
 except ImportError as e:
     st.warning(f"⚠️ Some scanners unavailable: {e}")
