@@ -69,7 +69,7 @@ def scan_ssrf(url: str) -> bool:
     if suspicious:
         print(f"🟠 SSRF vectors: {len(suspicious)}")
         for r in suspicious[:3]:
-            print(f"  → {r['param']}={r['target'][:20]}... ({r.get('status', '-')})")
+            print(f"  → {r['param']}={r['payload'][:20]}... ({r.get('status', '-')})")
         return True
     
     print("🟢 SSRF clean")
