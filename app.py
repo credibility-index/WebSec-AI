@@ -83,95 +83,89 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "₿ Crypto", "ℹ️ Dashboard"
 ])
 
-# TAB 1: WEB SECURITY SCANNER
+# TAB 1: WEB SECURITY SCANNER  
 with tab1:
-    st.markdown("### 🔗 **OWASP Top 10 Vulnerability Scanner**")
-    col_url, col_scan = st.columns([3, 1])
+    st.markdown("### 🔗 **OWASP Top 10 Scanner** ⚡ *Fast Parallel*")
+    col_url, col_timeout = st.columns([3, 1])
     
-    url = col_url.text_input("🎯 Target URL:", 
-                           placeholder="https://example.com", 
-                           help="Public websites only")
+    url = col_url.text_input("🎯 Target:", 
+                           placeholder="https://testphp.vulnweb.com", 
+                           help="Public sites only")
     
-    if col_scan.button("🚀 **FULL SCAN**", type="primary", use_container_width=True) and url:
-        with st.spinner("🔍 Active scanning..."):
+    timeout = col_timeout.slider("⏱️ Timeout/scan", 2, 8, 4)
+    
+    if col_url.button("🚀 **FAST SCAN**", type="primary", use_container_width=True) and url:
+        with st.spinner(f"🔍 Parallel scanning ({timeout}s/scan)..."):
             vulns = []
             t0 = time.time()
             
-            # Parallel scanning
-            scans = {
-                "SQLi": scan_sql_injection(url),
-                "XSS": scan_xss(url),
-                "CSRF": check_csrf_protection(url),
-                "SSRF": scan_ssrf(url)
-            }
-            
-            for vuln, detected in scans.items():
-                if detected:
-                    vulns.append(vuln)
-            
-            scan_time = time.time() - t0
-            
-            # AI Analysis
+            # ⚡ ПАРАЛЛЕЛЬНО через websec.full_scan()
             try:
-                ai_en, ai_ru = ai_analysis(vulns or ["No vulnerabilities"])
-            except:
-                ai_en = ai_ru = "AI analysis unavailable"
+                results = full_scan(url, timeout=timeout, max_workers=4)
+                vulns = results["vulnerabilities"]
+                scan_time = results["metrics"]["scan_time"]
+            except Exception as e:
+                st.error(f"❌ Scan failed: {e}")
+                st.stop()
             
-            # 📊 Metrics Dashboard
+            ai_en, ai_ru = results["ai_analysis"]["en"], results["ai_analysis"]["ru"]
+            
+            # 📊 Metrics
             col_m1, col_m2, col_m3 = st.columns(3)
-            col_m1.metric("⏱️ Scan Time", f"{scan_time:.2f}s")
-            col_m2.metric("🚨 Vulnerabilities", len(vulns))
-            col_m3.metric("🛡️ Security Score", f"{max(0, 100 - len(vulns)*20)}/100")
+            col_m1.metric("⏱️ Time", f"{scan_time:.1f}s")
+            col_m2.metric("🚨 Vulns", len(vulns))
+            col_m3.metric("🛡️ Score", f"{results['metrics']['score']}/100")
             
-            # Status Table
-            st.markdown("### 📋 **Scan Results**")
+            # 📋 Results Table
+            st.markdown("### 📋 **Detailed Results**")
             status_data = []
             for vuln in ["SQLi", "XSS", "CSRF", "SSRF"]:
                 status = "🟢 Clean" if vuln not in vulns else "🔴 Detected"
-                status_data.append({"Vulnerability": vuln, "Status": status})
-            
+                status_data.append({"Vuln": vuln, "Status": status})
             st.table(status_data)
             
-            # Bilingual AI Reports
+            # 🇺🇸🇷🇺 AI Reports
             col_ai1, col_ai2 = st.columns(2)
             with col_ai1:
                 st.markdown("### 🇺🇸 **AI Analysis**")
-                st.code(ai_en, language="markdown")
+                st.info(ai_en)
             with col_ai2:
                 st.markdown("### 🇷🇺 **AI Анализ**")
-                st.code(ai_ru, language="markdown")
+                st.info(ai_ru)
             
-            # 📥 Downloads
+            # 📥 4 Downloads
             st.markdown("---")
             ts = datetime.now().strftime("%Y%m%d_%H%M")
-            col_d1, col_d2 = st.columns(2)
+            col_d1, col_d2, col_d3 = st.columns(3)
             
-            report_en = f"""# WebSecAI Report
-**URL:** {url}
-**Timestamp:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
-**Vulnerabilities:** {', '.join(vulns) or 'None'}
-**Score:** {max(0, 100 - len(vulns)*20)}/100
+            # EN MD
+            report_en = f"""# WebSecAI Report ⚡
+**Target:** {url}
+**Time:** {scan_time:.1f}s | **Vulns:** {len(vulns)}
+**Score:** {results['metrics']['score']}/100
+
+**Findings:** {', '.join(vulns) or 'None'}
 
 {ai_en}"""
             
-            report_ru = f"""# WebSecAI Отчёт
-**URL:** {url}
-**Время:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
-**Уязвимости:** {', '.join(vulns) or 'Нет'}
-**Оценка:** {max(0, 100 - len(vulns)*20)}/100
+            # RU MD  
+            report_ru = f"""# WebSecAI Отчёт ⚡
+**Цель:** {url}
+**Время:** {scan_time:.1f}с | **Уязвимостей:** {len(vulns)}
+**Оценка:** {results['metrics']['score']}/100
+
+**Результаты:** {', '.join(vulns) or 'Чисто'}
 
 {ai_ru}"""
             
             with col_d1:
-                st.download_button(
-                    "📄 EN Report", report_en, 
-                    f"websec_report_en_{ts}.md", "text/markdown"
-                )
+                st.download_button("🇺🇸 EN", report_en, f"en_{ts}.md", "text/markdown")
             with col_d2:
-                st.download_button(
-                    "📄 RU Report", report_ru, 
-                    f"websec_report_ru_{ts}.md", "text/markdown"
-                )
+                st.download_button("🇷🇺 RU", report_ru, f"ru_{ts}.md", "text/markdown")
+            with col_d3:
+                st.json(results)  # Full JSON
+            
+            st.success(f"✅ Scan complete: {scan_time:.1f}s")
 
 # TAB 2: FAKENEWS DETECTOR (Оптимизировано)
 with tab2:
