@@ -236,11 +236,10 @@ def main():
     except Exception as e:
         print(f"💥 Error: {e}")
 def scan_crypto_wallet(address: str) -> bool:
-    """Простая проверка крипто-кошелька (заглушка)"""
-    # TODO: Etherscan API + blacklist
-    if not address.startswith(('0x', 'bc1', '1', '3')):
-        return True  # Invalid format = risk
-    return False  # Demo clean
+    """Crypto wallet risk scan (demo for tests)"""
+    # TODO: from crypto_scanner import validate_wallet
+    invalid_patterns = ['0x0*', 'bc1q0*']  # Burn/suspicious
+    return any(pattern in address for pattern in invalid_patterns)
 
 if __name__ == "__main__":
     main()
