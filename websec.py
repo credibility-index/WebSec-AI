@@ -15,19 +15,36 @@ try:
 except ImportError as e:
     print(f"⚠️ Ошибка импорта сканеров: {e}")
 
-# ── OpenRouter Client ────────────────────────────────────────────────────────
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+def initialize_openrouter_client() -> Optional[OpenAI]:
+    """
+    Инициализация клиента OpenRouter с обработкой ошибок
+    """
+    global client
+    
+    if not OPENROUTER_API_KEY:
+        print("⚠️ Ключ OpenRouter не найден в переменных окружения")
+        return None
+    
+    try:
+        client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=OPENROUTER_API_KEY,
+            default_headers={
+                "HTTP-Referer": "https://github.com/credibility-index/WebSec-AI",
+                "X-Title": "WebSecAI Suite v2.0",
+            },
+            timeout=10  # Таймаут в секундах
+        )
+        print("✅ OpenRouter клиент успешно инициализирован")
+        return client
+    
+    except (OpenAIError, Timeout, HTTPError) as e:
+        print(f"❌ Ошибка при инициализации OpenRouter: {str(e)}")
+        return None
 
-client: Optional[OpenAI] = None
+# Автоматическая инициализация при запуске
 if OPENROUTER_API_KEY:
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=OPENROUTER_API_KEY,
-        default_headers={
-            "HTTP-Referer": "https://github.com/credibility-index/WebSec-AI",
-            "X-Title": "WebSecAI Suite v2.0",
-        },
-    )
+    initialize_openrouter_client()
 
 def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
     """
