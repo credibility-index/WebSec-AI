@@ -85,7 +85,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 
 # TAB 1: INDEPENDENT FAST SCANNER
 with tab1:
-    st.markdown("### 🔗 **OWASP Scanner** ⚡ *No imports needed*")
+    st.markdown("### 🔗 **OWASP Scanner** ⚡")
     col_url, col_timeout = st.columns([3, 1])
     
     url = col_url.text_input("🎯 Target:", 
