@@ -13,6 +13,7 @@ try:
     from scanners.xss import scan_xss
     from scanners.csrf_scanner import check_csrf_protection
     from scanners.ssrf_scanner import scan_ssrf
+    st.success(result)
     st.success("✅ All security modules loaded")
 except ImportError as e:
     st.warning(f"⚠️ Some scanners unavailable: {e}")
@@ -313,19 +314,18 @@ Verdict: {verdict}
 Top Prediction: {results[0]['label']} ({results[0]['score']:.1%})"""
                 st.download_button("📄 Report", report, "ai_image_report.txt")
 
-# TAB 4: CRYPTO (Заглушка → реальная)
 with tab4:
     st.markdown("### ₿ **Crypto Wallet Risk Scanner**")
-    wallet = st.text_input("Wallet Address:", 
-                          placeholder="0x1234... или bc1q...")
+    wallet_text = st.text_area("📝 Paste wallet address or text:", height=150, 
+                              placeholder="0x742d35cc... или bc1q...")
     
-    if st.button("🔍 **ANALYZE**", type="primary") and wallet:
-        # TODO: Etherscan API + blacklist
-        col1, col2 = st.columns(2)
-        col1.metric("💰 Balance", "1.234 ETH")
-        col2.metric("🚨 Risk Score", "12/100")
-        st.success("✅ Clean wallet (demo)")
-
+    if st.button("🔍 **FULL WALLET SCAN**", type="primary", use_container_width=True):
+        if not wallet_text.strip():
+            st.warning("👆 Enter wallet address!")
+            st.stop()
+            
+        with st.spinner("🔄 Scanning Etherscan + blacklist..."):
+            result = check_wallet(wallet_text)
 # TAB 5: DASHBOARD
 with tab5:
     st.markdown("""
