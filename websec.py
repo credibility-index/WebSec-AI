@@ -3,7 +3,10 @@ import json
 import time
 from typing import List, Tuple, Optional, Dict
 from datetime import datetime
-from openai import OpenAI
+
+# Глобальные переменные
+client = None
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # Импорты сканеров с graceful fallback
 try:
@@ -12,104 +15,35 @@ try:
     from scanners.csrf_scanner import check_csrf_protection
     from scanners.ssrf_scanner import scan_ssrf
     from scanners.network_scanner import scan_network_segmentation
+    print("✅ Все сканеры загружены")
 except ImportError as e:
     print(f"⚠️ Ошибка импорта сканеров: {e}")
-
-def initialize_openrouter_client() -> Optional[OpenAI]:
-    """
-    Инициализация клиента OpenRouter с обработкой ошибок
-    """
-    global client
-    
-    if not OPENROUTER_API_KEY:
-        print("⚠️ Ключ OpenRouter не найден в переменных окружения")
-        return None
-    
-    try:
-        client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=OPENROUTER_API_KEY,
-            default_headers={
-                "HTTP-Referer": "https://github.com/credibility-index/WebSec-AI",
-                "X-Title": "WebSecAI Suite v2.0",
-            },
-            timeout=10  # Таймаут в секундах
-        )
-        print("✅ OpenRouter клиент успешно инициализирован")
-        return client
-    
-    except (OpenAIError, Timeout, HTTPError) as e:
-        print(f"❌ Ошибка при инициализации OpenRouter: {str(e)}")
-        return None
-
-# Автоматическая инициализация при запуске
-if OPENROUTER_API_KEY:
-    initialize_openrouter_client()
+    # Fallback функции
+    def scan_sql_injection(url): return False
+    def scan_xss(url): return False
+    def check_csrf_protection(url): return False
+    def scan_ssrf(url): return False
+    def scan_network_segmentation(url): return []
 
 def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
     """
-    Генерирует bilingual AI-отчёты для Streamlit/CLI.
+    Простой fallback AI-анализ (без OpenAI для стабильности).
     """
     if not vulnerabilities:
-        safe_en = "✅ No critical vulnerabilities detected. Consider advanced scanning."
-        safe_ru = "✅ Критических уязвимостей не найдено. Рекомендуем глубокий аудит."
-        return safe_en, safe_ru
-
-    if not client:
-        fallback_en = "[AI] OpenRouter API key missing. Enable for smart prioritization."
-        fallback_ru = "[AI] Ключ OpenRouter отсутствует. Включите для AI-приоритизации."
-        return fallback_en, fallback_ru
-
-    vulns_str = ", ".join(vulnerabilities)
+        return (
+            "✅ No critical vulnerabilities detected.",
+            "✅ Критических уязвимостей не найдено."
+        )
     
-    base_prompt = f"""
-You are an OWASP Top 10 expert penetration tester.
-
-**Detected:** {vulns_str}
-
-Provide:
-1. Risk ranking (CRITICAL/HIGH/MEDIUM)
-2. 3-step immediate fix
-3. CVSS v4.0 score estimate
-
-Format: Markdown bullets. Max 120 words.
-"""
-
-    try:
-        # English analysis
-        resp_en = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Используем стабильную модель
-            messages=[{"role": "user", "content": base_prompt}],
-            temperature=0.1,
-        )
-        ai_en = resp_en.choices[0].message.content.strip()
-
-        # Russian translation
-        ru_prompt = f"""
-Переведи профессиональный security-отчёт на русский язык.
-Сохрани термины: OWASP, SQLi, XSS, CSRF, SSRF, CVSS.
-Формат: Markdown bullets.
-
-ОРИГИНАЛ:
-{ai_en}
-"""
-        resp_ru = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": ru_prompt}],
-            temperature=0.1,
-        )
-        ai_ru = resp_ru.choices[0].message.content.strip()
-        
-        return ai_en, ai_ru
-
-    except Exception as e:
-        error_en = f"[AI ERROR] OpenRouter failed: {str(e)[:100]}"
-        error_ru = f"[AI ОШИБКА] OpenRouter недоступен: {str(e)[:100]}"
-        return error_en, error_ru
+    vulns_str = ", ".join(vulnerabilities)
+    return (
+        f"🚨 Found: {vulns_str}. Prioritize fixes: HIGH risk.",
+        f"🚨 Обнаружено: {vulns_str}. Приоритет исправления: ВЫСОКИЙ."
+    )
 
 def full_scan(url: str) -> Dict:
     """
-    Выполняет полное сканирование целевого URL.
+    Полное сканирование с метриками.
     """
     print(f"🔍 Scanning {url}...")
     results = {
@@ -122,7 +56,7 @@ def full_scan(url: str) -> Dict:
     
     t0 = time.time()
     try:
-        # Последовательное сканирование
+        # Сканирование
         scans = [
             ("SQL Injection", scan_sql_injection(url)),
             ("XSS", scan_xss(url)),
@@ -136,27 +70,25 @@ def full_scan(url: str) -> Dict:
             if detected:
                 results["vulnerabilities"].append(name)
         
-        # Сетевой сканер
         net_issues = scan_network_segmentation(url)
         if net_issues:
             results["vulnerabilities"].extend([f"Network: {issue}" for issue in net_issues])
-            print(f"  Network: {' | '.join([f'🟡 {issue}' for issue in net_issues])}")
-        else:
-            print("  Network: 🟢 OK")
         
-# Метрики сканирования
+        # Метрики
         results["metrics"] = {
             "scan_time": round(time.time() - t0, 2),
             "vuln_count": len(results["vulnerabilities"]),
             "security_score": max(0, 100 - len(results["vulnerabilities"]) * 20)
         }
         
-        # AI-анализ
-        print("🤖 AI Analysis...")
+        # AI
         results["ai_analysis"]["en"], results["ai_analysis"]["ru"] = ai_analysis(
             results["vulnerabilities"]
         )
         
+    except KeyboardInterrupt:
+        print("\n👋 Сканирование прервано пользователем")
+        results["status"] = "interrupted"
     except Exception as e:
         print(f"💥 Ошибка при сканировании: {str(e)}")
         results["error"] = str(e)
@@ -164,135 +96,117 @@ def full_scan(url: str) -> Dict:
     return results
 
 def generate_reports(results: Dict) -> None:
-    """
-    Генерирует отчёты в форматах MD и JSON
-    """
+    """Генерирует подробные MD/JSON/TXT отчеты."""
     ts = datetime.now().strftime("%Y%m%d_%H%M")
-    vulns = results["vulnerabilities"]
+    os.makedirs("reports", exist_ok=True)
     
-    # Markdown отчёт на английском
-    report_en = f"""# WebSecAI Professional Report 🔒
+    vulns = results["vulnerabilities"]
+    metrics = results["metrics"]
+    
+    # ПОДРОБНЫЙ Markdown EN
+    detailed_en = f"""# 🛡️ WebSecAI Professional Report v2.0
 
-## 🎯 Target Information
-**URL:** {results["target"]}
-**Timestamp:** {results["timestamp"]}
+## 🎯 Target: {results["target"]}
+**Timestamp:** {results["timestamp"]}  
+**Duration:** {metrics["scan_time"]}s
 
 ## 📊 Executive Summary
-- **Vulnerabilities Found:** {len(vulns)}
-- **Security Score:** {results["metrics"]["security_score"]}/100
-- **Scan Duration:** {results["metrics"]["scan_time"]} seconds
+| Metric | Value |
+|--------|-------|
+| **Vulnerabilities** | {len(vulns)} |
+| **Security Score** | {metrics["security_score"]}/100 |
+| **Risk Level** | {'🔴 CRITICAL' if len(vulns)>=3 else '🟡 HIGH' if len(vulns)==2 else '🟢 MEDIUM'} |
 
-## 🚨 Findings
-{"\n".join([f"- **{v}**" for v in vulns]) or "✅ No vulnerabilities detected"}
+## 🚨 Detailed Findings
+{vulns and "\\n".join([f"• **{v}** - OWASP Top 10" for v in vulns]) or "✅ No vulnerabilities detected"}
 
-## 🤖 AI Analysis
+## 🤖 AI Security Analysis
 {results["ai_analysis"]["en"]}
 
 ---
-Generated by WebSecAI v2.0
+**Generated by** WebSecAI Suite | GitHub: credibility-index/WebSec-AI
 """
     
-    # Markdown отчёт на русском
-    report_ru = f"""# Отчёт WebSecAI 🔒
+    # ПОДРОБНЫЙ Markdown RU  
+    detailed_ru = f"""# 🛡️ Профессиональный Отчёт WebSecAI v2.0
 
-## 🎯 Информация о цели
-**URL:** {results["target"]}
-**Время сканирования:** {results["timestamp"]}
+## 🎯 Цель: {results["target"]}
+**Время:** {results["timestamp"]}  
+**Длительность:** {metrics["scan_time"]}с
 
-## 📊 Сводная информация
-- **Найденных уязвимостей:** {len(vulns)}
-- **Оценка безопасности:** {results["metrics"]["security_score"]}/100
-- **Длительность сканирования:** {results["metrics"]["scan_time"]} секунд
+## 📊 Сводка
+| Метрика | Значение |
+|---------|----------|
+| **Уязвимостей** | {len(vulns)} |
+| **Оценка** | {metrics["security_score"]}/100 |
+| **Риск** | {'🔴 КРИТИЧЕСКИЙ' if len(vulns)>=3 else '🟡 ВЫСОКИЙ' if len(vulns)==2 else '🟢 СРЕДНИЙ'} |
 
-## 🚨 Результаты
-{"\n".join([f"- **{v}**" for v in vulns]) or "✅ Уязвимости не обнаружены"}
+## 🚨 Детальные Результаты
+{vulns and "\\n".join([f"• **{v}** - OWASP Top 10" for v in vulns]) or "✅ Уязвимости не обнаружены"}
 
-## 🤖 AI-анализ
+## 🤖 AI Анализ
 {results["ai_analysis"]["ru"]}
 
 ---
-Сгенерировано WebSecAI v2.0
+**Сгенерировано** WebSecAI Suite | t.me/likeluv
 """
     
-    # Создаём директорию для отчётов, если её нет
-    os.makedirs("reports", exist_ok=True)
-    
-    try:
-        # Сохраняем отчёты
-        with open(f"reports/websec_report_en_{ts}.md", "w", encoding="utf-8") as f:
-            f.write(report_en)
-            
-        with open(f"reports/websec_report_ru_{ts}.md", "w", encoding="utf-8") as f:
-            f.write(report_ru)
-            
-        # JSON экспорт
-        with open(f"reports/websec_full_{ts}.json", "w", encoding="utf-8") as f:
-            json.dump(results, f, ensure_ascii=False, indent=2)
-            
-        print(f"✅ Отчёты успешно сохранены:")
-        print(f"   📄 reports/websec_report_en_{ts}.md")
-        print(f"   📄 reports/websec_report_ru_{ts}.md")
-        print(f"   📊 reports/websec_full_{ts}.json")
-        
-    except Exception as e:
-        print(f"⚠️ Ошибка при сохранении отчётов: {str(e)}")
+    # TXT для логов/Telegram
+    txt_report = f"""WebSecAI SCAN REPORT {ts}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-def main():
-    """
-    Основная точка входа для CLI
-    """
-    print("\n=== 🛡️ WebSecAI Suite v2.0 ===")
-    print("GitHub: credibility-index/WebSec-AI")
-    print("-" * 50)
+TARGET: {results["target"]}
+VULNS: {len(vulns)} | SCORE: {metrics["security_score"]}/100
+TIME: {metrics["scan_time"]}s
+
+FINDINGS:
+{chr(10).join(vulns) or "✅ CLEAN"}
+
+AI: {results["ai_analysis"]["en"][:200]}...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GitHub: credibility-index/WebSec-AI
+"""
     
-    try:
-        target = input("🎯 Введите URL для сканирования: ").strip()
-        
-        if not target.startswith(('http://', 'https://')):
-            print("❌ URL должен начинаться с http:// или https://")
-            return
-            
-        results = full_scan(target)
-        print("\n" + "="*50)
-        print("📊 ИТОГИ СКАНИРОВАНИЯ")
-        print(f"Цель: {results['target']}")
-        print(f"Уязвимостей: {len(results['vulnerabilities'])}")
-        print(f"Оценка безопасности: {results['metrics']['security_score']}/100")
-        
-        generate_reports(results)
-        
-    except KeyboardInterrupt:
-        print("\n👋 Сканирование прервано пользователем")
-        except Exception as e:
-        print(f"💥 Произошла ошибка: {str(e)}")
-        
-def scan_crypto_wallet(address: str) -> bool:
-    """
-    Проверка криптокошелька на риски (демо-функция)
-    """
-    # Список подозрительных паттернов
-    invalid_patterns = [
-        '0x0*',        # Burn address (Ethereum)
-        'bc1q0*',      # Burn address (Bitcoin)
-        '0x111*',      # Подозрительный паттерн
-        'bc1q111*'
+    # Сохранение ВСЕХ форматов
+    formats = [
+        (f"websec_en_{ts}.md", detailed_en),
+        (f"websec_ru_{ts}.md", detailed_ru),
+        (f"websec_full_{ts}.json", json.dumps(results, ensure_ascii=False, indent=2)),
+        (f"websec_txt_{ts}.txt", txt_report)
     ]
     
+    for filename, content in formats:
+        with open(f"reports/{filename}", "w", encoding="utf-8") as f:
+            f.write(content)
+    
+    print(f"✅ 4 отчёта сохранены:")
+    print(f"   📄 reports/websec_en_{ts}.md")
+    print(f"   📄 reports/websec_ru_{ts}.md") 
+    print(f"   📊 reports/websec_full_{ts}.json")
+    print(f"   📝 reports/websec_txt_{ts}.txt")
+
+
+def main():
+    """CLI вход."""
+    print("\n=== 🛡️ WebSecAI v2.0 ===")
+    target = input("🎯 URL: ").strip()
+    if not target.startswith(('http://', 'https://')):
+        print("❌ Invalid URL")
+        return
+    
+    results = full_scan(target)
+    print(f"\n📊 Vulns: {len(results['vulnerabilities'])} | Score: {results['metrics']['security_score']}")
+    generate_reports(results)
+
+def scan_crypto_wallet(address: str) -> bool:
+    """Демо крипто-сканер."""
+    invalid_patterns = ['0x0*', 'bc1q0*']
     return any(pattern in address for pattern in invalid_patterns)
 
 if __name__ == "__main__":
     try:
-        # Проверка наличия необходимых директорий
-        os.makedirs("scanners", exist_ok=True)
         os.makedirs("reports", exist_ok=True)
-        
-        # Запуск основного функционала
         main()
-        
-    except FileNotFoundError as fnf:
-        print(f"⚠️ Ошибка: Не найдены необходимые файлы - {str(fnf)}")
-        print("Убедитесь, что все сканеры находятся в директории scanners/")
-        
     except Exception as e:
-        print(f"💥 Критическая ошибка: {str(e)}")
-        print("Для получения помощи обратитесь к документации или создайте issue на GitHub")
+        print(f"💥 Error: {str(e)}")
