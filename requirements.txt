@@ -1,23 +1,13 @@
 requests
-
 beautifulsoup4
-
 lxml
-
 openai
-
 pytest==7.4.0
-
 streamlit
-
 cryptography==42.0.8
-
 gigachat
-
 transformers 
-
 torch --index-url https://download.pytorch.org/whl/cpu
-
 torchvision 
-
 pillow 
+beautifulsoup4==4.12.3  # Для crawler
