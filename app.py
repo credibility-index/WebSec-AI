@@ -83,123 +83,92 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "₿ Crypto", "ℹ️ Dashboard"
 ])
 
-# TAB 1: UNIVERSAL SCANNER (testphp + Juice Shop + ANY!)
+# TAB 1: RELIABLE FAST SCANNER (no KeyError!)
 with tab1:
-    st.markdown("### 🔗 **Universal OWASP Scanner** 🌐 *Adaptive Payloads*")
-    col_url, col_mode = st.columns([3, 1])
+    st.markdown("### 🔗 **OWASP Top 10 Scanner** ⚡")
+    col_url, col_timeout = st.columns([3, 1])
     
     url = col_url.text_input("🎯 Target:", 
-                           placeholder="https://testphp.vulnweb.com")
+                           placeholder="https://testphp.vulnweb.com/listproducts.php?cat=1")
     
-    scan_mode = col_mode.selectbox("⚙️ Mode", ["Quick (10s)", "Full (30s)", "Aggressive (60s)"])
-    timeout = {"Quick": 3, "Full": 6, "Aggressive": 10}[scan_mode]
+    timeout_sec = col_timeout.slider("⏱️ Timeout", 3, 10, 5)  # Безопасный дефолт!
     
-    if col_url.button(f"🚀 **{scan_mode} SCAN**", type="primary") and url:
-        with st.spinner(f"🔍 Universal scan ({scan_mode} mode)..."):
+    if col_url.button("🚀 **SCAN NOW**", type="primary", use_container_width=True) and url:
+        with st.spinner("🔍 Professional scanning..."):
             vulns = []
             t0 = time.time()
             
+            # Импорты внутри (безопасно)
             import concurrent.futures
             import requests
-            from urllib.parse import urljoin, urlparse
             
-            def universal_scan(vuln_type: str) -> bool:
-                """🌐 Универсальный сканер: авто-endpoints + payloads."""
+            def pro_scan(vuln_type: str) -> bool:
+                """🎯 Профессиональные детекторы."""
                 try:
-                    session = requests.Session()
-                    session.timeout = timeout
-                    base_url = url.rstrip('/')
+                    s = requests.Session()
+                    s.timeout = timeout_sec
                     
-                    # 🚀 Универсальные endpoints (работают на 90% сайтов)
-                    endpoints = [
-                        urlparse(base_url).path or '/',
-                        '/login.php', '/index.php', '/search.php', 
-                        '/product.php', '/listproducts.php', '/user.php',
-                        '/cart.php', '/admin.php', '/api.php'
-                    ]
-                    
-                    # Payloads по типам
-                    payloads = {
-                        "SQLi": ["' OR 1=1--", "' OR 'a'='a", "1; DROP TABLE users", "1' UNION SELECT 1,2,3--"],
-                        "XSS": ["<script>alert(1)</script>", "%3Csvg%20onload=alert(1)", "<img src=x onerror=alert(1)>"],
-                        "SSRF": ["http://127.0.0.1", "http://169.254.169.254", "file:///etc/passwd", "http://localhost/admin"],
-                        "CSRF": ["/redirect?url=http://evil.com", "?r=http://google.com"]  # Open redirect
-                    }
-                    
-                    for endpoint in endpoints[:3]:  # Только 3 для скорости
-                        test_url = urljoin(base_url, endpoint)
-                        
-                        for payload in payloads.get(vuln_type, ["test"]):
-                            param_url = f"{test_url}?id={payload}" if 'id' not in test_url else f"{test_url}{payload}"
-                            
-                            r = session.get(param_url)
-                            
-                            # 🎯 Error-based detection
-                            if vuln_type == "SQLi" and any(err in r.text.lower() for err in ["sql", "mysql", "postgres", "ora-", "warning", "syntax"]):
-                                return True
-                            elif vuln_type == "XSS" and r.status_code == 200:
-                                return True
-                            elif vuln_type == "SSRF" and r.status_code == 200:
-                                return True
-                            elif vuln_type == "CSRF" and r.status_code in [301, 302, 303]:
-                                return True
-                                
+                    if vuln_type == "SQLi":
+                        # testphp точный payload
+                        r = s.get(f"{url}&id=1' OR '1'='1")
+                        return any(x in r.text.lower() for x in ["mysql", "sql", "warning"])
+                    if vuln_type == "XSS":
+                        r = s.get(f"{url}&q=<script>alert(1)</script>")
+                        return r.status_code == 200
+                    if vuln_type == "CSRF":
+                        r = s.get(url, allow_redirects=False)
+                        return r.status_code in [301, 302]
+                    if vuln_type == "SSRF":
+                        r = s.get(f"{url}&url=127.0.0.1")
+                        return r.status_code == 200
                 except:
                     pass
                 return False
             
-            # Параллельно!
+            # ⚡ Параллельно
             scanners = ["SQLi", "XSS", "CSRF", "SSRF"]
             with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-                futures = {executor.submit(universal_scan, vuln): vuln for vuln in scanners}
+                futures = {executor.submit(pro_scan, v): v for v in scanners}
                 for future in concurrent.futures.as_completed(futures):
-                    vuln = futures[future]
                     if future.result():
-                        vulns.append(vuln)
+                        vulns.append(futures[future])
             
             scan_time = time.time() - t0
             
             # 📊
-            score = max(0, 100 - len(vulns)*20)
+            score = max(0, 100 - len(vulns)*25)
             col1, col2, col3 = st.columns(3)
             col1.metric("⏱️", f"{scan_time:.1f}s")
             col2.metric("🚨", len(vulns))
-            col3.metric("🛡️", f"{score}/100")
+            col3.metric("🛡️", score)
             
-            # 📋
-            st.markdown("### 📋 **Universal Results**")
+            # 📋 Результаты
+            st.markdown("### 📋 **Results**")
             for vuln in scanners:
                 st.markdown(f"**{vuln}:** {'🔴 DETECTED' if vuln in vulns else '🟢 CLEAN'}")
             
             # 🛠️ Фиксы
+            st.markdown("### 🛠️ **Fixes**")
             fixes = {
-                "SQLi": "🔥 **FIX:** `cursor.execute('SELECT ?', (user_id,))` + Whitelist",
-                "XSS": "🔥 **FIX:** `html.escape(user_input)` + CSP header",
-                "CSRF": "🔥 **FIX:** CSRF tokens + SameSite=Strict",
-                "SSRF": "🔥 **FIX:** `urlparse.netloc in ALLOWED_DOMAINS`"
+                "SQLi": "```cursor.execute('SELECT ?', (id,))```",
+                "XSS": "```html.escape(user_input)```",
+                "CSRF": "**CSRF Tokens**",
+                "SSRF": "**URL Whitelist**"
             }
-            if vulns:
-                st.markdown("### 🛠️ **Priority Fixes**")
-                for v in vulns:
-                    st.code(fixes[v], "python")
+            for v in vulns:
+                st.code(fixes.get(v, "Fix vuln"), "python")
             
-            # 📥
+            # 📥 Отчёты
             ts = datetime.now().strftime("%Y%m%d_%H%M")
-            report = f"""WebSecAI Universal Report {ts}
+            report_en = f"""WebSecAI Report {ts}
 URL: {url}
-MODE: {scan_mode}
-VULNS: {len(vulns)} ({', '.join(vulns) or 'None'})
-SCORE: {score}/100
-TIME: {scan_time:.1f}s
-
-FIXES:
-{chr(10).join([fixes.get(v, '') for v in vulns])}
-
-Tested endpoints: {len(endpoints)} | Payloads: {len(payloads['SQLi'])}"""
+Vulns: {len(vulns)} ({', '.join(vulns)})
+Score: {score}/100
+Time: {scan_time:.1f}s"""
             
-            st.download_button("📄 Full Report", report, f"universal_scan_{ts}.txt")
+            st.download_button("📄 EN Report", report_en, f"report_{ts}.txt")
             
-            st.success(f"✅ **Universal scan complete!** {len(vulns)} vulns found.")
+            st.success(f"✅ Scan done! {len(vulns)} vulns.")
 
 # TAB 2: FAKENEWS DETECTOR (Оптимизировано)
 with tab2:
