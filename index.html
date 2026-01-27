@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>WebSecAI – AI-Powered Web Vulnerability Scanner</title>
-  <meta name="description" content="WebSecAI is an AI-powered web application vulnerability scanner that detects SQLi, XSS, CSRF, SSRF and network segmentation issues with AI-generated reports in English and Russian.">
+  <title>WebSecAI – AI-Powered Security Suite 2026</title>
+  <meta name="description" content="WebSecAI: OWASP Top 10 scanner, FakeNews detector (GigaChat), AI image analysis, crypto wallet risks. Live Streamlit app with bilingual AI reports (EN/RU).">
   <style>
     body {
       margin: 0;
@@ -79,7 +79,7 @@
       display: grid;
       grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
       gap: 32px;
-      align-items: center;
+      align-items: start;
     }
     h1 {
       font-size: 32px;
@@ -144,6 +144,7 @@
       padding: 10px 12px;
       margin-bottom: 8px;
       border: 1px solid rgba(55, 65, 81, 0.9);
+      white-space: pre-line;
     }
     .scan-line span.prompt {
       color: #22c55e;
@@ -157,13 +158,34 @@
     .scan-line span.ok {
       color: #22c55e;
     }
+    .scan-line span.ai {
+      color: #a855f7;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 24px 0;
+    }
+    .feature-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(55, 65, 81, 0.5);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    .feature-icon {
+      font-size: 24px;
+      display: block;
+      margin-bottom: 8px;
+    }
     .pill-row {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       margin-top: 8px;
     }
-        .pill {
+    .pill {
       font-size: 11px;
       padding: 4px 10px;
       border-radius: 999px;
@@ -186,10 +208,12 @@
     @media (max-width: 820px) {
       main {
         grid-template-columns: minmax(0, 1fr);
+        gap: 24px;
       }
       header {
         flex-direction: column;
         align-items: flex-start;
+        gap: 16px;
       }
     }
   </style>
@@ -201,75 +225,100 @@
         <img src="websec_ai.png" alt="WebSecAI logo">
         <div>
           <div class="logo-text">WebSecAI</div>
-          <div class="badge">AI Web Vulnerability Scanner</div>
+          <div class="badge">AI Security Suite 2026</div>
         </div>
       </div>
       <div>
-        <a class="btn-secondary" href="https://github.com/credibility-index/websec-ai" target="_blank" rel="noopener">
-          View on GitHub
+        <a class="btn-primary" href="https://websec-ai.streamlit.app/" target="_blank" rel="noopener">
+          🚀 Launch Live App
+        </a>
+        <a class="btn-secondary" href="https://github.com/credibility-index/WebSec-AI" target="_blank" rel="noopener">
+          GitHub
         </a>
       </div>
     </header>
 
     <main>
       <section>
-        <h1>Discover web flaws <span>with AI‑assisted precision</span></h1>
+        <h1>AI-Powered <span>WebSec Suite</span></h1>
         <p class="subtitle">
-          WebSecAI scans web applications for SQLi, XSS, CSRF, SSRF and basic network segmentation issues,
-          then generates human‑readable remediation reports in English and Russian.
+          Comprehensive security platform with OWASP Top 10 scanning, FakeNews detection via GigaChat Pro,
+          AI-generated image analysis, and crypto wallet risk assessment. Bilingual reports (EN/RU).
         </p>
+        
+        <div class="features-grid">
+          <div class="feature-card">
+            <span class="feature-icon">🔒</span>
+            <strong>OWASP Scanner</strong><br>
+            SQLi • XSS • CSRF • SSRF
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">📰</span>
+            <strong>FakeNews Detector</strong><br>
+            GigaChat Pro credibility score
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">🖼️</span>
+            <strong>AI Images</strong><br>
+            Midjourney/DALL-E detection
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">₿</span>
+            <strong>Crypto Scanner</strong><br>
+            Wallet risk analysis
+          </div>
+        </div>
+
         <ul>
-          <li>Detects common OWASP‑style issues: SQL Injection, XSS, CSRF, SSRF.</li>
-          <li>Highlights risky open ports and misconfigured network exposure.</li>
-          <li>AI-generated prioritized fix recommendations (EN/RU).</li>
+          <li>🔍 Detects OWASP Top 10 vulnerabilities with AI prioritization</li>
+          <li>🤖 FakeNews analysis returns credibility score + risk probability</li>
+          <li>🖼️ Identifies AI-generated images (Stable Diffusion, Midjourney)</li>
+          <li>📊 Exports professional MD/JSON reports in English and Russian</li>
         </ul>
+        
         <div>
           <a class="btn-primary" href="https://websec-ai.streamlit.app/" target="_blank" rel="noopener">
-            Run live scanner
+            🚀 Open Streamlit App
           </a>
-          <a class="btn-secondary" href="https://github.com/credibility-index/websec-ai" target="_blank" rel="noopener">
-            View on GitHub
+          <a class="btn-secondary" href="https://github.com/credibility-index/WebSec-AI" target="_blank" rel="noopener">
+            View Source ↗
           </a>
         </div>
         <p class="tagline">
-          Designed for security engineers, pentesters and students who want a practical AI‑powered helper.
+          Built for cybersecurity professionals, pentesters, researchers and content creators.
         </p>
       </section>
 
       <aside>
         <div class="hero-card">
-          <h2>Console preview</h2>
+          <h2>Live Demo Preview</h2>
           <div class="scan-line">
-            <span class="prompt">$</span> python websec.py<br>
-            <span class="prompt">Enter URL:</span> <span class="url">http://testphp.vulnweb.com</span><br>
-            <span class="ok">[+] XSS: not detected</span><br>
-            <span class="vuln">[!] CSRF: missing anti‑CSRF token on POST form</span><br>
-            <span class="vuln">[!] Network: SSH exposed in public zone</span>
+            <span class="prompt">$</span> streamlit run app.py<br>
+            <span class="prompt">Target:</span> <span class="url">testphp.vulnweb.com</span><br>
+            <span class="vuln">[!] CSRF: missing token</span> <span class="ok">[✓] XSS: clean</span><br>
+            <span class="ok">⏱️ 2.3s | 🚨 1/4 vulns | 🛡️ Score: 80/100</span>
           </div>
           <div class="scan-line">
-            <span class="prompt">AI Report (EN):</span><br>
-            - Prioritize CSRF on sensitive forms.<br>
-            - Restrict SSH exposure to VPN‑only access.
+            <span class="prompt">📰 FakeNews:</span><br>
+            <span class="ai">"credibility: medium, score: 65, fake_prob: 28%"</span>
           </div>
           <div class="scan-line">
-            <span class="prompt">AI‑отчёт (RU):</span><br>
-            - Закройте CSRF уязвимость для форм с изменением данных.<br>
-            - Ограничьте доступ по SSH только через VPN.
+            <span class="prompt">🖼️ AI Image:</span><br>
+            <span class="ai">"🤖 AI: 87% | 👤 Real: 13% | Verdict: AI GENERATED"</span>
           </div>
           <div class="pill-row">
-            <div class="pill"><strong>Tech:</strong> Python · Requests · OpenRouter</div>
-            <div class="pill"><strong>Finds:</strong> SQLi · XSS · CSRF · SSRF</div>
-            <div class="pill"><strong>Extra:</strong> Network segmentation hints</div>
+            <div class="pill"><strong>Stack:</strong> Streamlit • GigaChat • Transformers</div>
+            <div class="pill"><strong>Live:</strong> <a href="https://websec-ai.streamlit.app/">websec-ai.streamlit.app</a></div>
+            <div class="pill"><strong>Repo:</strong> credibility-index/WebSec-AI</div>
           </div>
         </div>
       </aside>
     </main>
 
     <footer>
-      <div>© 2025 WebSecAI. For legal testing of permitted targets only.</div>
-      <div>Created by an independent security researcher &amp; NLP engineer.</div>
+      <div>© 2026 WebSecAI. Ethical testing of authorized targets only. Moscow Cybersecurity Lab.</div>
+      <div>Made with ❤️ by independent researcher | t.me/likeluv</div>
     </footer>
   </div>
 </body>
 </html>
-
