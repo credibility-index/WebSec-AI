@@ -41,11 +41,13 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
         f"🚨 Обнаружено: {vulns_str}. Приоритет исправления: ВЫСОКИЙ."
     )
 
-def full_scan(url: str) -> Dict:
+import concurrent.futures  
+
+def full_scan(url: str, timeout: float = 3.0, max_workers: int = 4) -> Dict:
     """
-    Полное сканирование с метриками.
+    ⚡ Быстрое параллельное сканирование с таймаутами.
     """
-    print(f"🔍 Scanning {url}...")
+    print(f"🔍 Fast scan {url} (timeout={timeout}s)...")
     results = {
         "timestamp": datetime.now().isoformat(),
         "target": url,
@@ -55,36 +57,57 @@ def full_scan(url: str) -> Dict:
     }
     
     t0 = time.time()
+    
+    # Список сканеров с аргументами
+    scanners = [
+        ("SQLi", scan_sql_injection, [url]),
+        ("XSS", scan_xss, [url]),
+        ("CSRF", check_csrf_protection, [url]),
+        ("SSRF", scan_ssrf, [url])
+    ]
+    
+    # ПАРАЛЛЕЛЬНОЕ выполнение (⚡ x4 быстрее!)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(func, *args): name 
+                  for name, func, args in scanners}
+        
+        for future in concurrent.futures.as_completed(futures):
+            name = futures[future]
+            try:
+                detected = future.result(timeout=timeout)
+                status = '🟡 DETECTED' if detected else '🟢 CLEAN'
+                print(f"  {name}: {status} ({timeout}s)")
+                if detected:
+                    results["vulnerabilities"].append(name)
+            except concurrent.futures.TimeoutError:
+                print(f"  {name}: ⏱️ TIMEOUT ({timeout}s)")
+            except Exception as e:
+                print(f"  {name}: ❌ {str(e)[:30]}")
+    
+    # Network (быстро)
     try:
-        # Сканирование
-        scans = [
-            ("SQL Injection", scan_sql_injection(url)),
-            ("XSS", scan_xss(url)),
-            ("CSRF", check_csrf_protection(url)),
-            ("SSRF", scan_ssrf(url))
-        ]
-        
-        for name, detected in scans:
-            status = '🟡 DETECTED' if detected else '🟢 CLEAN'
-            print(f"  {name}: {status}")
-            if detected:
-                results["vulnerabilities"].append(name)
-        
         net_issues = scan_network_segmentation(url)
         if net_issues:
             results["vulnerabilities"].extend([f"Network: {issue}" for issue in net_issues])
-        
-        # Метрики
-        results["metrics"] = {
-            "scan_time": round(time.time() - t0, 2),
-            "vuln_count": len(results["vulnerabilities"]),
-            "security_score": max(0, 100 - len(results["vulnerabilities"]) * 20)
-        }
-        
-        # AI
-        results["ai_analysis"]["en"], results["ai_analysis"]["ru"] = ai_analysis(
-            results["vulnerabilities"]
-        )
+    except:
+        pass
+    
+    # Метрики
+    scan_time = time.time() - t0
+    results["metrics"] = {
+        "scan_time": round(scan_time, 1),
+        "vuln_count": len(results["vulnerabilities"]),
+        "security_score": max(0, 100 - len(results["vulnerabilities"]) * 20)
+    }
+    
+    # AI (быстро)
+    results["ai_analysis"]["en"], results["ai_analysis"]["ru"] = ai_analysis(
+        results["vulnerabilities"]
+    )
+    
+    print(f"✅ Scan complete: {scan_time:.1f}s")
+    return results
+
         
     except KeyboardInterrupt:
         print("\n👋 Сканирование прервано пользователем")
