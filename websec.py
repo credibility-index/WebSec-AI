@@ -1,5 +1,6 @@
 import os
 import json
+import concurrent.futures 
 import time
 from typing import List, Tuple, Optional, Dict
 from datetime import datetime
@@ -41,7 +42,7 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
         f"🚨 Обнаружено: {vulns_str}. Приоритет исправления: ВЫСОКИЙ."
     )
 
-import concurrent.futures  
+ 
 
 def full_scan(url: str, timeout: float = 3.0, max_workers: int = 4) -> Dict:
     """
