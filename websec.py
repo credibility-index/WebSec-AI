@@ -3,8 +3,7 @@ import json
 import time
 import logging
 import concurrent.futures
-import requests
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Callable
 from datetime import datetime
 
 # Настройка логов
@@ -18,20 +17,35 @@ def check_csrf_protection(url): return False
 def scan_ssrf(url): return False
 def scan_network_segmentation(url): return []
 
-# Загрузка реальных сканеров
-try:
-    from scanners.sql_scanner import scan_sql_injection
-    from scanners.xss import scan_xss
-    from scanners.csrf_scanner import check_csrf_protection
-    from scanners.ssrf_scanner import scan_ssrf
-    from scanners.network_scanner import scan_network_segmentation
-    print("✅ Real scanners loaded")
-except ImportError:
-    print("⚠️ Using fallback scanners")
+# Класс для ленивой загрузки сканеров
+class LazyScanner:
+    def __init__(self, module_name: str, func_name: str, fallback: Callable):
+        self.module_name = module_name
+        self.func_name = func_name
+        self.fallback = fallback
+        self._scanner = None
+
+    def __call__(self, *args, **kwargs):
+        if self._scanner is None:
+            try:
+                module = __import__(self.module_name, fromlist=[self.func_name])
+                self._scanner = getattr(module, self.func_name)
+                print(f"✅ {self.module_name} loaded")
+            except ImportError:
+                print(f"⚠️ {self.module_name} not found, using fallback")
+                self._scanner = self.fallback
+        return self._scanner(*args, **kwargs)
+
+# Ленивые загрузчики сканеров
+scan_sql_injection = LazyScanner('scanners.sql_scanner', 'scan_sql_injection', scan_sql_injection)
+scan_xss = LazyScanner('scanners.xss', 'scan_xss', scan_xss)
+check_csrf_protection = LazyScanner('scanners.csrf_scanner', 'check_csrf_protection', check_csrf_protection)
+scan_ssrf = LazyScanner('scanners.ssrf_scanner', 'scan_ssrf', scan_ssrf)
+scan_network_segmentation = LazyScanner('scanners.network_scanner', 'scan_network_segmentation', scan_network_segmentation)
 
 # Конфигурация LLM
 AI_CONFIG = {
-    "model": "deepseek/deepseek-chat-v3.1:free",  # или qwen/qwen-3:free, mistralai/mistral-7b-instruct:free
+    "model": "deepseek/deepseek-chat-v3.1:free",
     "max_tokens": 200,
     "temperature": 0.3,
     "max_retries": 2,
@@ -99,11 +113,22 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
                     f"⚠️ Не удалось подключиться к ИИ; обнаружены: {vuln_list}. Проверьте вручную."
                 )
 
-    # Fallback на всякий случай
     return (
         f"⚠️ LLM error: {vuln_list}. Check manually.",
         f"⚠️ Ошибка ИИ: {vuln_list}. Проверьте вручную."
     )
+
+def scan_single(url: str, scanner_name: str, scanner_func: Callable, timeout: float = 4.0):
+    """Запуск одного сканера для кнопки"""
+    print(f"🔍 {scanner_name}: {url}")
+    try:
+        detected = scanner_func(url)
+        status = '🟡 HIT' if detected else '🟢 OK'
+        print(f"  {scanner_name}: {status}")
+        return detected
+    except Exception as e:
+        print(f"  {scanner_name}: ⏱️ Timeout (or error: {e})")
+        return False
 
 def full_scan(url: str, timeout: float = 4.0, max_workers: int = 4) -> Dict:
     print(f"🔍 Scanning {url}...")
@@ -119,7 +144,8 @@ def full_scan(url: str, timeout: float = 4.0, max_workers: int = 4) -> Dict:
         ("SQLi", scan_sql_injection, [url]),
         ("XSS", scan_xss, [url]),
         ("CSRF", check_csrf_protection, [url]),
-        ("SSRF", scan_ssrf, [url])
+        ("SSRF", scan_ssrf, [url]),
+        ("Network", scan_network_segmentation, [url])  # ✅ Добавлен Network
     ]
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -177,11 +203,84 @@ AI: {results["ai_analysis"]["ru"]}"""
 
     print(f"✅ Reports: en/ru_{ts}.md + json/txt")
 
+def scanner_menu(url: str):
+    """Меню с кнопками для каждого сканера"""
+    print(f"\n🛡️ WebSecAI Scanner Menu")
+    print(f"Target: {url}")
+    print("-" * 50)
+    
+    all_results = []
+    
+    # Кнопки для каждого сканера
+    print("\n1. Запустить SQLi сканер")
+    choice = input("Нажмите Enter для запуска или 's' для пропуска: ")
+    if choice.lower() != 's':
+        detected = scan_single(url, "SQLi", scan_sql_injection)
+        all_results.append(("SQLi", detected))
+    
+    print("\n2. Запустить XSS сканер")
+    choice = input("Нажмите Enter для запуска или 's' для пропуска: ")
+    if choice.lower() != 's':
+        detected = scan_single(url, "XSS", scan_xss)
+        all_results.append(("XSS", detected))
+    
+    print("\n3. Запустить CSRF сканер")
+    choice = input("Нажмите Enter для запуска или 's' для пропуска: ")
+    if choice.lower() != 's':
+        detected = scan_single(url, "CSRF", check_csrf_protection)
+        all_results.append(("CSRF", detected))
+    
+    print("\n4. Запустить SSRF сканер")
+    choice = input("Нажмите Enter для запуска или 's' для пропуска: ")
+    if choice.lower() != 's':
+        detected = scan_single(url, "SSRF", scan_ssrf)
+        all_results.append(("SSRF", detected))
+    
+    print("\n5. Запустить Network сканер")
+    choice = input("Нажмите Enter для запуска или 's' для пропуска: ")
+    if choice.lower() != 's':
+        detected = scan_single(url, "Network", scan_network_segmentation)
+        all_results.append(("Network", detected))
+    
+    # Подсчет результатов
+    vulns = [name for name, detected in all_results if detected]
+    print(f"\n📊 ИТОГО: {len(vulns)} уязвимостей из {len(all_results)} проверок")
+    
+    if vulns:
+        results = {
+            "vulnerabilities": vulns,
+            "target": url,
+            "timestamp": datetime.now().isoformat()
+        }
+        results["ai_analysis"] = {"en": "", "ru": ""}
+        results["ai_analysis"]["en"], results["ai_analysis"]["ru"] = ai_analysis(vulns)
+        print(results["ai_analysis"]["ru"])
+        generate_reports(results)
+
 def main():
-    print("🛡️ WebSecAI v2.0")
-    url = input("URL: ")
-    results = full_scan(url)
-    generate_reports(results)
+    print("🛡️ WebSecAI v2.1 - Lazy Loading + Individual Scanners")
+    while True:
+        print("\nВыберите режим:")
+        print("1. Меню сканеров (по кнопкам)")
+        print("2. Полный скан")
+        print("0. Выход")
+        
+        choice = input("Ваш выбор: ").strip()
+        if choice == '0':
+            break
+        elif choice == '1':
+            url = input("URL: ")
+            scanner_menu(url)
+        elif choice == '2':
+            url = input("URL: ")
+            results = full_scan(url)
+            generate_reports(results)
+        else:
+            print("Неверный выбор")
 
 if __name__ == "__main__":
     main()
+
+
+
+
