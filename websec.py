@@ -277,6 +277,21 @@ def main():
             generate_reports(results)
         else:
             print("Неверный выбор")
+def export_for_streamlit():
+    """Экспорт для app.py"""
+    return {
+        'full_scan': full_scan,
+        'scan_single': scan_single,
+        'ai_analysis': ai_analysis,
+        'scan_sql_injection': scan_sql_injection,
+        'scan_xss': scan_xss,
+        'check_csrf_protection': check_csrf_protection,
+        'scan_ssrf': scan_ssrf,
+        'scan_network_segmentation': scan_network_segmentation
+    }
+
+# Автоматический экспорт
+globals().update(export_for_streamlit())
 
 if __name__ == "__main__":
     main()
