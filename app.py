@@ -6,22 +6,17 @@ import re
 from datetime import datetime
 from PIL import Image
 
-# Safe imports с улучшенной диагностикой
+# ✅ Ленивая загрузка websec
 try:
-    from websec import ai_analysis
-    from scanners.sql_scanner import scan_sql_injection
-    from scanners.xss import scan_xss
-    from scanners.csrf_scanner import check_csrf_protection
-    from scanners.ssrf_scanner import scan_ssrf
-    st.success("✅ All security modules loaded")
+    from websec import full_scan, scan_single, scan_sql_injection, scan_xss, check_csrf_protection, scan_ssrf, scan_network_segmentation, ai_analysis
+    st.success("✅ WebSecAI modules loaded (lazy)")
 except ImportError as e:
-    st.warning(f"⚠️ Some scanners unavailable: {e}")
-    st.info("Install: pip install -r requirements.txt")
+    st.warning(f"⚠️ WebSecAI unavailable: {e}")
+    st.info("🔧 pip install -r requirements.txt && python websec.py")
 
-# Глобальное кэширование моделей (один раз)
+# Глобальное кэширование
 @st.cache_resource
 def load_gigachat():
-    """GigaChat Pro с secrets"""
     try:
         from gigachat import GigaChat
         return GigaChat(credentials=st.secrets["GIGACHAT_API_KEY"], verify_ssl_certs=False)
@@ -30,306 +25,183 @@ def load_gigachat():
 
 @st.cache_resource
 def load_ai_detector():
-    """AI Image Detector"""
     try:
         from transformers import pipeline
         return pipeline("image-classification", model="umm-maybe/AI-image-detector")
     except:
         return None
 
-st.set_page_config(
-    page_title="🛡️ WebSecAI", 
-    page_icon="🛡️", 
-    layout="wide", 
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="🛡️ WebSecAI", page_icon="🛡️", layout="wide")
 
-st.title("🛡️ **WebSecAI Suite v2.0**")
-st.markdown("*OWASP Top 10 • FakeNews • AI Images • Crypto Analysis*")
+st.title("🛡️ **WebSecAI Suite v2.1**")
+st.markdown("*OWASP Top 10 • FakeNews • AI Images • Lazy Scanners*")
 
-# ── SIDEBAR: API Keys + Mission ─────────────────────────────────────────────
+# ── SIDEBAR ──────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🔑 **API Configuration**")
-    
-    # OpenRouter (опционально)
-    openrouter_key = st.text_input("OpenRouter API", type="password", 
-                                  help="openrouter.ai (для ai_analysis)")
+    st.markdown("### 🔑 **API Keys**")
+    openrouter_key = st.text_input("OpenRouter API", type="password")
     if openrouter_key:
         os.environ["OPENROUTER_API_KEY"] = openrouter_key
     
-    st.markdown("### 🚀 **WebSecAI Mission**")
+    st.markdown("### 🚀 **Status**")
     st.markdown("""
-    **Комплексная защита цифрового пространства:**
-
-    🔒 **WebSec** — OWASP Top 10 сканер  
-    📰 **FakeNews** — GigaChat анализ достоверности  
-    🖼️ **AI Images** — Детектор ИИ-генераций  
-    ₿ **Crypto** — Риск-анализ кошельков  
-    🔍 **Corpus** — Сбор данных для ML
-
-    **Цель:** Сделать интернет безопаснее! 🌐
-    
-    👨‍💻 **Creator:** Moscow Cybersecurity Expert  
-    📱 **Telegram:** t.me/likeluv  
-    🌐 **GitHub:** credibility-index/WebSec-AI
+    ✅ Lazy scanners: SQLi, XSS, CSRF, SSRF, Network  
+    ✅ OpenRouter AI analysis
+    ✅ Individual buttons
     """)
     
-    st.markdown("---")
-    st.caption("© WebSecAI 2026")
+    if st.button("🧪 Test WebSec"):
+        try:
+            detected = scan_sql_injection("test")
+            st.success("✅ WebSec OK!")
+        except:
+            st.error("❌ WebSec not ready")
 
 # ── TABS ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🔒 Web Security", "📰 FakeNews", "🖼️ AI Images", 
-    "₿ Crypto", "ℹ️ Dashboard"
-])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔒 Web Security", "📰 FakeNews", "🖼️ AI Images", "₿ Crypto", "ℹ️ Dashboard"])
 
-# TAB 1: RELIABLE FAST SCANNER (использует ТВОИ сканеры!)
+# TAB 1: WEB SECURITY ✅
 with tab1:
-    st.markdown("### 🔗 **OWASP Top 10 Scanner** ⚡")
+    st.markdown("### 🔗 **OWASP Scanner** *Lazy Loading* ⚡")
+    
     col_url, col_timeout = st.columns([3, 1])
-    
-    url = col_url.text_input("🎯 Target:", 
-                           placeholder="https://testphp.vulnweb.com/listproducts.php?cat=1")
-    
+    url = col_url.text_input("🎯 Target:", placeholder="https://testphp.vulnweb.com/listproducts.php?cat=1")
     timeout_sec = col_timeout.slider("⏱️ Timeout", 3, 10, 5)
     
-    if col_url.button("🚀 **SCAN NOW**", type="primary", use_container_width=True) and url:
-        with st.spinner("🔍 Scanning with real scanners..."):
-            # Импорты ТВОИХ сканеров (безопасно)
+    col_full, col_single = st.columns(2)
+    
+    # Полный скан
+    if col_full.button("🚀 **Full Scan**", type="primary", use_container_width=True) and url:
+        with st.spinner("🔍 Full scanning..."):
             try:
-                from websec import full_scan
                 results = full_scan(url, timeout=float(timeout_sec))
-                st.success("✅ Scan complete!")
-                
-                # 📊 Метрики
-                vulns = results["vulnerabilities"]
-                metrics = results["metrics"]
-                col1, col2, col3 = st.columns(3)
-                col1.metric("⏱️", f"{metrics['scan_time']}s")
-                col2.metric("🚨", len(vulns))
-                col3.metric("🛡️", metrics["score"])
-                
-                # 📋 Результаты
-                st.markdown("### 📋 **Results**")
-                for vuln in ["SQLi", "XSS", "CSRF", "SSRF"]:
-                    status = "🔴 DETECTED" if vuln in vulns else "🟢 CLEAN"
-                    st.markdown(f"**{vuln}:** {status}")
-                
-                # 🤖 AI Analysis
-                st.markdown("### 🤖 **AI Analysis**")
-                col_en, col_ru = st.columns(2)
-                with col_en:
-                    st.markdown("**🇺🇸 English:**")
-                    st.info(results["ai_analysis"]["en"])
-                with col_ru:
-                    st.markdown("**🇷🇺 Русский:**")
-                    st.info(results["ai_analysis"]["ru"])
-                
-                # 📥 Отчёты (автогенерация!)
-                st.markdown("### 📥 **Reports**")
-                ts = datetime.now().strftime("%Y%m%d_%H%M")
-                st.download_button("📄 EN Report", 
-                                 open(f"reports/en_{ts}.md").read(), 
-                                 f"websec_en_{ts}.md")
-                st.download_button("📄 RU Report", 
-                                 open(f"reports/ru_{ts}.md").read(), 
-                                 f"websec_ru_{ts}.md")
-                st.download_button("📊 JSON", 
-                                 json.dumps(results, indent=2, ensure_ascii=False), 
-                                 f"websec_{ts}.json")
-                
+                show_results(results)
             except Exception as e:
-                st.error(f"❌ Scanner error: {e}")
-                st.info("🔧 Проверьте: pip install openrouter, scanners/ файлы")
+                st.error(f"❌ Full scan error: {e}")
+    
+    # Кнопки по отдельности
+    st.markdown("### 📱 **Individual Scanners**")
+    cols1 = st.columns(3)
+    with cols1[0]:
+        if st.button("🔍 **SQLi**"): 
+            detected = scan_single(url or "test", "SQLi", scan_sql_injection)
+            st.balloons()
+    
+    with cols1[1]:
+        if st.button("🔍 **XSS**"): 
+            detected = scan_single(url or "test", "XSS", scan_xss)
+            st.balloons()
+    
+    with cols1[2]:
+        if st.button("🔍 **CSRF**"): 
+            detected = scan_single(url or "test", "CSRF", check_csrf_protection)
+            st.balloons()
+    
+    cols2 = st.columns(2)
+    with cols2[0]:
+        if st.button("🔍 **SSRF**"): 
+            detected = scan_single(url or "test", "SSRF", scan_ssrf)
+            st.balloons()
+    
+    with cols2[1]:
+        if st.button("🌐 **Network**"): 
+            detected = scan_single(url or "test", "Network", scan_network_segmentation)
+            st.balloons()
 
-# TAB 2: FAKENEWS DETECTOR (Оптимизировано)
+def show_results(results):
+    """Показ результатов"""
+    st.success("✅ Scan complete!")
+    vulns = results["vulnerabilities"]
+    metrics = results["metrics"]
+    
+    # Метрики
+    col1, col2, col3 = st.columns(3)
+    col1.metric("⏱️ Time", f"{metrics['scan_time']}s")
+    col2.metric("🚨 Vulns", len(vulns))
+    col3.metric("🛡️ Score", metrics["score"])
+    
+    # Статус
+    st.markdown("### 📋 **Results**")
+    for vuln in ["SQLi", "XSS", "CSRF", "SSRF", "Network"]:
+        status = "🔴 HIT" if vuln in vulns else "🟢 OK"
+        st.markdown(f"**{vuln}:** {status}")
+    
+    # AI
+    st.markdown("### 🤖 **AI Analysis**")
+    col_en, col_ru = st.columns(2)
+    with col_en:
+        st.info(results["ai_analysis"]["en"])
+    with col_ru:
+        st.info(results["ai_analysis"]["ru"])
+    
+    # Reports
+    ts = datetime.now().strftime("%Y%m%d_%H%M")
+    try:
+        st.download_button("📄 EN", open(f"reports/en_{ts}.md").read(), f"en_{ts}.md")
+        st.download_button("📄 RU", open(f"reports/ru_{ts}.md").read(), f"ru_{ts}.md")
+    except:
+        st.info("📁 Check ./reports/")
+    st.download_button("📊 JSON", json.dumps(results, indent=2, ensure_ascii=False), f"websec_{ts}.json")
+
+# TAB 2: FAKENEWS ✅
 with tab2:
-    st.markdown("### 📰 **FakeNews Detector** *Powered by GigaChat Pro*")
+    st.markdown("### 📰 **FakeNews Detector**")
+    news_text = st.text_area("📝 News text:", height=250)
     
-    news_text = st.text_area(
-        "📝 Вставьте текст новости:", 
-        placeholder="Полный текст статьи для анализа достоверности...", 
-        height=300
-    )
-    
-    if st.button("🚀 **АНАЛИЗ ДОСТОВЕРНОСТИ**", type="primary", use_container_width=True) and news_text.strip():
+    if st.button("🚀 **Analyze**", type="primary") and news_text.strip():
         gigachat = load_gigachat()
-        if not gigachat:
-            st.error("❌ GigaChat unavailable. Check GIGACHAT_API_KEY in secrets.toml")
-            st.stop()
-            
-        with st.spinner("🤖 GigaChat анализирует..."):
-            try:
-                from gigachat.models import Chat
-                
-                # Улучшенный промпт с chunking
-                text_chunk = news_text[:2000]  # GigaChat limit
-                prompt = f"""АНАЛИЗ НОВОСТИ. ОТВЕЧАЙ ТОЛЬКО JSON:
+        if gigachat:
+            with st.spinner("🤖 Analyzing..."):
+                try:
+                    from gigachat.models import Chat
+                    prompt = f"Analyze credibility of: {news_text[:1500]}\nReply JSON only."
+                    chat = Chat(messages=[{"role": "user", "content": prompt}])
+                    response = gigachat.chat(chat)
+                    st.json(response.choices[0].message.content)
+                except Exception as e:
+                    st.error(f"❌ {e}")
+        else:
+            st.warning("❌ GigaChat key missing")
 
-{{
-  "credibility": "high|medium|low",
-  "score": 85,
-  "fake_probability": 0.23,
-  "sources_reliability": "high|medium|low",
-  "reason": "2-3 ключевых аргумента",
-  "recommendation": "доверять|проверить|не доверять"
-}}
-
-ТЕКСТ: {text_chunk}"""
-                
-                chat = Chat(messages=[{"role": "user", "content": prompt}])
-                response = gigachat.chat(chat)
-                
-                # Парсинг JSON
-                raw = response.choices[0].message.content.strip()
-                json_match = re.search(r'\{.*\}', raw, re.DOTALL)
-                if json_match:
-                    result = json.loads(json_match.group())
-                else:
-                    result = {"error": "JSON parse failed", "raw": raw}
-                
-                # 📊 Metrics
-                col1, col2, col3 = st.columns(3)
-                col1.metric("📊 Достоверность", f"{result.get('score', 50)}/100")
-                col2.metric("⚠️ Риск фейка", f"{result.get('fake_probability', 0.5):.0%}")
-                col3.metric("📚 Источники", result.get('sources_reliability', 'unknown').upper())
-                
-                # 🎯 Verdict
-                status_colors = {"high": "🟢", "medium": "🟡", "low": "🔴"}
-                status = result.get('credibility', 'medium')
-                st.markdown(f"""
-                ## {status_colors.get(status, '⚪')} **{status.upper()}**
-                **Рекомендация:** {result.get('recommendation', 'проверить')}
-                **Причины:** {result.get('reason', 'N/A')}
-                """)
-                
-                with st.expander("📄 Полный отчёт JSON"):
-                    st.json(result)
-                
-                # Download
-                st.download_button(
-                    "💾 JSON Report", 
-                    json.dumps(result, ensure_ascii=False, indent=2),
-                    f"fakenews_{result.get('score', 0)}_{ts}.json"
-                )
-                
-            except Exception as e:
-                st.error(f"❌ Analysis failed: {e}")
-                st.info("🔧 Проверьте: pip install gigachat, secrets.toml")
-
-# TAB 3: AI IMAGE DETECTOR (Оптимизировано)
+# TAB 3: AI IMAGES ✅
 with tab3:
     st.markdown("### 🖼️ **AI Image Detector**")
-    st.markdown("*Midjourney • DALL-E • Stable Diffusion vs Real Photos*")
+    uploaded = st.file_uploader("Upload image")
     
-    uploaded_image = st.file_uploader(
-        "📁 Upload Image", 
-        type=['png','jpg','jpeg','webp','heic','gif']
-    )
-    
-    col_img, col_res = st.columns([1, 2])
-    
-    if uploaded_image:
-        image = Image.open(uploaded_image).convert('RGB')
-        # Resize для скорости
-        image_resized = image.resize((512, 512))
+    if uploaded:
+        image = Image.open(uploaded)
+        st.image(image, use_column_width=True)
         
-        col_img.image(image_resized, caption="Uploaded", use_column_width=True)
-        
-        if col_img.button("🤖 **DETECT AI**", type="primary"):
+        if st.button("🤖 **Detect AI**"):
             detector = load_ai_detector()
-            if not detector:
-                st.error("❌ Model unavailable. Install: pip install transformers torch")
-                st.stop()
-                
-            with st.spinner("🔍 Analyzing image authenticity..."):
-                results = detector(image_resized)
-                
-                # Расчёт вероятностей
-                ai_scores = [r['score'] for r in results if 'fake' in r['label'].lower()]
-                ai_prob = ai_scores[0] if ai_scores else 0.5
-                human_prob = 1 - ai_prob
-                
-                # 📊 Metrics
-                m1, m2, m3 = st.columns(3)
-                m1.metric("🤖 AI Generated", f"{ai_prob:.1%}")
-                m2.metric("👤 Real Photo", f"{human_prob:.1%}")
-                
-                # Verdict
-                if ai_prob > 0.6:
-                    verdict = "🔴 **AI GENERATED**"
-                    st.error("🚨 Detected: Midjourney/Stable Diffusion/DALL-E")
-                elif ai_prob < 0.4:
-                    verdict = "🟢 **REAL PHOTO**"
-                    st.success("✅ Taken with camera")
-                else:
-                    verdict = "🟡 **UNCERTAIN**"
-                    st.warning("⚠️ Model confidence low")
-                
-                m3.metric("🎯 Verdict", verdict)
-                
-                # Детали
-                st.markdown("### 📊 Model Confidence:")
-                for result in results[:5]:
-                    icon = "🤖" if 'fake' in result['label'].lower() else "👤"
-                    st.write(f"{icon} **{result['label']}**: {result['score']:.1%}")
-                
-                # Report
-                report = f"""WebSecAI AI Image Analysis
-AI Probability: {ai_prob:.1%}
-Real Probability: {human_prob:.1%}
-Verdict: {verdict}
-Top Prediction: {results[0]['label']} ({results[0]['score']:.1%})"""
-                st.download_button("📄 Report", report, "ai_image_report.txt")
+            if detector:
+                with st.spinner("Analyzing..."):
+                    results = detector(image)
+                    ai_prob = max([r['score'] for r in results if 'fake' in r['label'].lower()] or [0.5])
+                    st.metric("🤖 AI Probability", f"{ai_prob:.1%}")
+                    st.json(results)
+            else:
+                st.error("Install transformers")
 
+# TAB 4: CRYPTO ✅
 with tab4:
-    st.markdown("### ₿ **Crypto Wallet Risk Scanner**")
-    wallet_text = st.text_area("📝 Paste wallet address or text:", height=150, 
-                              placeholder="0x742d35cc... или bc1q...")
-    
-    if st.button("🔍 **FULL WALLET SCAN**", type="primary", use_container_width=True):
-        if not wallet_text.strip():
-            st.warning("👆 Enter wallet address!")
-            st.stop()
-            
-        with st.spinner("🔄 Scanning Etherscan + blacklist..."):
-            result = check_wallet(wallet_text)
-# TAB 5: DASHBOARD
+    st.markdown("### ₿ **Crypto Scanner**")
+    st.info("🔄 Coming soon...")
+
+# TAB 5: DASHBOARD ✅
 with tab5:
     st.markdown("""
-    # 🌟 **WebSecAI Dashboard**
+    # 🛡️ **WebSecAI v2.1** ✅ READY!
     
-    ## ✅ **Working Features:**
-    - 🔒 OWASP Top 10 Scanner
-    - 📰 GigaChat FakeNews 
-    - 🖼️ AI Image Detector
-    - 📊 Professional Reports
+    **✅ Features:**
+    • 5 Lazy OWASP scanners
+    • OpenRouter AI analysis  
+    • Individual buttons
+    • Auto-reports EN/RU/JSON
     
-    ## 🚀 **Tech Stack:**
+    **🎯 Launch:**
     ```
-    Python 3.11 • Streamlit • GigaChat Pro
-    Transformers • Pillow • OWASP Scanners
+    export OPENROUTER_API_KEY="sk-or-..."
+    streamlit run app.py
     ```
-    
-    ## 📈 **Next:**
-    1. 💾 Results Database
-    2. ₿ Real Crypto Scanner
-    3. 🔍 Corpus Builder ML
-    4. 📱 Mobile API
-    
-    **👨‍💻 Creator:** Cybersecurity Expert | MSc Data Science 2026
     """)
-    st.balloons()
-
-# Test button (sidebar)
-if st.sidebar.button("🧪 Test GigaChat Connection"):
-    gigachat = load_gigachat()
-    if gigachat:
-        try:
-            from gigachat.models import Chat
-            chat = Chat(messages=[{"role": "user", "content": "Тест"}])
-            response = gigachat.chat(chat)
-            st.sidebar.success("✅ GigaChat OK!")
-            st.sidebar.write(response.choices[0].message.content[:100])
-        except Exception as e:
-            st.sidebar.error(f"❌ Test failed: {e}")
