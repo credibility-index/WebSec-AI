@@ -1,207 +1,216 @@
 import streamlit as st
 import os
-import time
+import importlib
 import json
 import re
 from datetime import datetime
 from PIL import Image
 
-# ✅ Ленивая загрузка websec
-try:
-    from websec import full_scan, scan_single, scan_sql_injection, scan_xss, check_csrf_protection, scan_ssrf, scan_network_segmentation, ai_analysis
-    st.success("✅ WebSecAI modules loaded (lazy)")
-except ImportError as e:
-    st.warning(f"⚠️ WebSecAI unavailable: {e}")
-    st.info("🔧 pip install -r requirements.txt && python websec.py")
+st.set_page_config(page_title="🛡️ WebSecAI", page_icon="🛡️", layout="wide", initial_sidebar_state="expanded")
 
-# Глобальное кэширование
-@st.cache_resource
-def load_gigachat():
-    try:
-        from gigachat import GigaChat
-        return GigaChat(credentials=st.secrets["GIGACHAT_API_KEY"], verify_ssl_certs=False)
-    except:
-        return None
+st.title("🛡️ **WebSecAI Suite v3.0** *Full Lazy Loading*")
 
-@st.cache_resource
-def load_ai_detector():
-    try:
-        from transformers import pipeline
-        return pipeline("image-classification", model="umm-maybe/AI-image-detector")
-    except:
-        return None
-
-st.set_page_config(page_title="🛡️ WebSecAI", page_icon="🛡️", layout="wide")
-
-st.title("🛡️ **WebSecAI Suite v2.1**")
-st.markdown("*OWASP Top 10 • FakeNews • AI Images • Lazy Scanners*")
-
-# ── SIDEBAR ──────────────────────────────────────────────────────────────────
+# ── SIDEBAR: API Keys ─────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🔑 **API Keys**")
-    openrouter_key = st.text_input("OpenRouter API", type="password")
-    if openrouter_key:
-        os.environ["OPENROUTER_API_KEY"] = openrouter_key
+    st.markdown("### 🔑 **API Configuration**")
     
-    st.markdown("### 🚀 **Status**")
-    st.markdown("""
-    ✅ Lazy scanners: SQLi, XSS, CSRF, SSRF, Network  
-    ✅ OpenRouter AI analysis
-    ✅ Individual buttons
-    """)
+    # OpenRouter
+    or_key = st.text_input("🔓 OpenRouter", type="password", help="Для AI анализа уязвимостей")
+    if or_key:
+        os.environ["OPENROUTER_API_KEY"] = or_key
     
-    if st.button("🧪 Test WebSec"):
-        try:
-            detected = scan_sql_injection("test")
-            st.success("✅ WebSec OK!")
-        except:
-            st.error("❌ WebSec not ready")
+    # GigaChat
+    gc_key = st.text_input("🤖 GigaChat", type="password", help="secrets.toml или здесь")
+    if gc_key:
+        st.secrets["GIGACHAT_API_KEY"] = gc_key
+    
+    st.markdown("---")
+    st.caption("👨‍💻 Moscow Cybersecurity 2026")
 
-# ── TABS ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔒 Web Security", "📰 FakeNews", "🖼️ AI Images", "₿ Crypto", "ℹ️ Dashboard"])
+# ── TABS: Полный функционал ────────────────────────────────────────────────────
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🔒 Web Security", "📰 FakeNews", "🖼️ AI Images", 
+    "₿ Crypto", "📊 Dashboard"
+])
 
-# TAB 1: WEB SECURITY ✅
+# ════════════════ TAB 1: WEB SECURITY (Lazy) ════════════════
 with tab1:
-    st.markdown("### 🔗 **OWASP Scanner** *Lazy Loading* ⚡")
+    st.markdown("### 🎯 **OWASP Top 10** *Lazy Scanners*")
     
-    col_url, col_timeout = st.columns([3, 1])
-    url = col_url.text_input("🎯 Target:", placeholder="https://testphp.vulnweb.com/listproducts.php?cat=1")
-    timeout_sec = col_timeout.slider("⏱️ Timeout", 3, 10, 5)
+    col_url, col_timeout = st.columns([4, 1])
+    url = col_url.text_input("Target:", "https://testphp.vulnweb.com")
+    timeout = col_timeout.slider("Timeout", 3, 15, 5)
     
-    col_full, col_single = st.columns(2)
+    # Кнопки сканеров
+    st.markdown("### 🔍 **Scanners**")
+    cols = st.columns(3)
     
-    # Полный скан
-    if col_full.button("🚀 **Full Scan**", type="primary", use_container_width=True) and url:
-        with st.spinner("🔍 Full scanning..."):
-            try:
-                results = full_scan(url, timeout=float(timeout_sec))
-                show_results(results)
-            except Exception as e:
-                st.error(f"❌ Full scan error: {e}")
-    
-    # Кнопки по отдельности
-    st.markdown("### 📱 **Individual Scanners**")
-    cols1 = st.columns(3)
-    with cols1[0]:
-        if st.button("🔍 **SQLi**"): 
-            detected = scan_single(url or "test", "SQLi", scan_sql_injection)
-            st.balloons()
-    
-    with cols1[1]:
-        if st.button("🔍 **XSS**"): 
-            detected = scan_single(url or "test", "XSS", scan_xss)
-            st.balloons()
-    
-    with cols1[2]:
-        if st.button("🔍 **CSRF**"): 
-            detected = scan_single(url or "test", "CSRF", check_csrf_protection)
-            st.balloons()
+    with cols[0]:
+        if st.button("🔍 SQLi"): lazy_scan("SQLi", url)
+    with cols[1]:
+        if st.button("🔍 XSS"): lazy_scan("XSS", url)
+    with cols[2]:
+        if st.button("🔍 CSRF"): lazy_scan("CSRF", url)
     
     cols2 = st.columns(2)
     with cols2[0]:
-        if st.button("🔍 **SSRF**"): 
-            detected = scan_single(url or "test", "SSRF", scan_ssrf)
-            st.balloons()
-    
+        if st.button("🔍 SSRF"): lazy_scan("SSRF", url)
     with cols2[1]:
-        if st.button("🌐 **Network**"): 
-            detected = scan_single(url or "test", "Network", scan_network_segmentation)
-            st.balloons()
+        if st.button("🌐 Network"): lazy_scan("Network", url)
+    
+    if st.button("🚀 FULL SCAN", type="primary"):
+        lazy_full_scan(url, timeout)
 
-def show_results(results):
-    """Показ результатов"""
-    st.success("✅ Scan complete!")
-    vulns = results["vulnerabilities"]
-    metrics = results["metrics"]
-    
-    # Метрики
-    col1, col2, col3 = st.columns(3)
-    col1.metric("⏱️ Time", f"{metrics['scan_time']}s")
-    col2.metric("🚨 Vulns", len(vulns))
-    col3.metric("🛡️ Score", metrics["score"])
-    
-    # Статус
-    st.markdown("### 📋 **Results**")
-    for vuln in ["SQLi", "XSS", "CSRF", "SSRF", "Network"]:
-        status = "🔴 HIT" if vuln in vulns else "🟢 OK"
-        st.markdown(f"**{vuln}:** {status}")
-    
-    # AI
-    st.markdown("### 🤖 **AI Analysis**")
-    col_en, col_ru = st.columns(2)
-    with col_en:
-        st.info(results["ai_analysis"]["en"])
-    with col_ru:
-        st.info(results["ai_analysis"]["ru"])
-    
-    # Reports
-    ts = datetime.now().strftime("%Y%m%d_%H%M")
-    try:
-        st.download_button("📄 EN", open(f"reports/en_{ts}.md").read(), f"en_{ts}.md")
-        st.download_button("📄 RU", open(f"reports/ru_{ts}.md").read(), f"ru_{ts}.md")
-    except:
-        st.info("📁 Check ./reports/")
-    st.download_button("📊 JSON", json.dumps(results, indent=2, ensure_ascii=False), f"websec_{ts}.json")
-
-# TAB 2: FAKENEWS ✅
+# ════════════════ TAB 2: FAKENEWS (GigaChat) ════════════════
 with tab2:
     st.markdown("### 📰 **FakeNews Detector**")
     news_text = st.text_area("📝 News text:", height=250)
     
-    if st.button("🚀 **Analyze**", type="primary") and news_text.strip():
-        gigachat = load_gigachat()
-        if gigachat:
-            with st.spinner("🤖 Analyzing..."):
-                try:
-                    from gigachat.models import Chat
-                    prompt = f"Analyze credibility of: {news_text[:1500]}\nReply JSON only."
-                    chat = Chat(messages=[{"role": "user", "content": prompt}])
-                    response = gigachat.chat(chat)
-                    st.json(response.choices[0].message.content)
-                except Exception as e:
-                    st.error(f"❌ {e}")
+    if st.button("🤖 ANALYZE CREDIBILITY", type="primary"):
+        if news_text.strip():
+            lazy_fakenews(news_text)
         else:
-            st.warning("❌ GigaChat key missing")
+            st.warning("📝 Enter text!")
 
-# TAB 3: AI IMAGES ✅
+# ════════════════ TAB 3: AI IMAGES ════════════════
 with tab3:
     st.markdown("### 🖼️ **AI Image Detector**")
-    uploaded = st.file_uploader("Upload image")
+    uploaded = st.file_uploader("📁 Upload image", type=['png','jpg','jpeg'])
     
     if uploaded:
         image = Image.open(uploaded)
-        st.image(image, use_column_width=True)
+        st.image(image, caption="Uploaded", use_column_width=True)
         
-        if st.button("🤖 **Detect AI**"):
-            detector = load_ai_detector()
-            if detector:
-                with st.spinner("Analyzing..."):
-                    results = detector(image)
-                    ai_prob = max([r['score'] for r in results if 'fake' in r['label'].lower()] or [0.5])
-                    st.metric("🤖 AI Probability", f"{ai_prob:.1%}")
-                    st.json(results)
-            else:
-                st.error("Install transformers")
+        if st.button("🤖 DETECT AI", type="primary"):
+            lazy_ai_image(image)
 
-# TAB 4: CRYPTO ✅
+# ════════════════ TAB 4: CRYPTO ════════════════
 with tab4:
-    st.markdown("### ₿ **Crypto Scanner**")
-    st.info("🔄 Coming soon...")
+    st.markdown("### ₿ **Crypto Risk Scanner**")
+    wallet = st.text_area("Wallet address:", height=100)
+    
+    if st.button("🔍 SCAN WALLET", type="primary"):
+        if wallet.strip():
+            st.info("🔄 Crypto scanner coming soon...")
+        else:
+            st.warning("Enter wallet!")
 
-# TAB 5: DASHBOARD ✅
+# ════════════════ TAB 5: DASHBOARD ════════════════
 with tab5:
     st.markdown("""
-    # 🛡️ **WebSecAI v2.1** ✅ READY!
+    # 📊 **WebSecAI v3.0** 
     
-    **✅ Features:**
-    • 5 Lazy OWASP scanners
-    • OpenRouter AI analysis  
-    • Individual buttons
+    **Web Security:**
+    • 5 OWASP scanners
+    • OpenRouter AI analysis
     • Auto-reports EN/RU/JSON
     
-    **🎯 Launch:**
+    **FakeNews:**
+    • GigaChat Pro credibility
+    • JSON structured output
+    
+    **AI Images:**
+    • Transformers detector
+    • Midjourney/DALL-E/Real
+    
+    **🔄 Lazy Loading:**
     ```
-    export OPENROUTER_API_KEY="sk-or-..."
-    streamlit run app.py
+    websec.py     → Click to load
+    gigachat      → Click to load  
+    transformers  → Click to load
     ```
     """)
+
+# ── LAZY FUNCTIONS (загружаются по требованию) ────────────────────────────────
+def lazy_scan(scanner_type: str, url: str):
+    """Запуск сканера"""
+    with st.spinner(f"Loading {scanner_type}..."):
+        try:
+            import websec
+            if scanner_type == "SQLi":
+                result = websec.scan_single(url, "SQLi", websec.scan_sql_injection)
+            elif scanner_type == "XSS":
+                result = websec.scan_single(url, "XSS", websec.scan_xss)
+            elif scanner_type == "CSRF":
+                result = websec.scan_single(url, "CSRF", websec.check_csrf_protection)
+            elif scanner_type == "SSRF":
+                result = websec.scan_single(url, "SSRF", websec.scan_ssrf)
+            elif scanner_type == "Network":
+                result = websec.scan_single(url, "Network", websec.scan_network_segmentation)
+            
+            st.success("🟢 OK" if not result else f"🟡 HIT {scanner_type}!")
+            st.balloons()
+            
+        except Exception as e:
+            st.error(f"❌ {scanner_type}: {e}")
+
+def lazy_full_scan(url: str, timeout: float):
+    """Полный скан"""
+    with st.spinner("🔍 Full scan loading all scanners..."):
+        try:
+            import websec
+            results = websec.full_scan(url, timeout=timeout)
+            
+            # Results
+            st.success("✅ Full scan OK!")
+            vulns = results["vulnerabilities"]
+            metrics = results["metrics"]
+            
+            c1, c2, c3 = st.columns(3)
+            c1.metric("⏱️", f"{metrics['scan_time']}s")
+            c2.metric("🚨", len(vulns))
+            c3.metric("🛡️", metrics["score"])
+            
+            st.markdown("### 📋 **Status**")
+            for vuln in vulns:
+                st.error(f"🔴 {vuln}")
+            if not vulns:
+                st.success("🟢 Clean!")
+            
+            st.markdown("### 🤖 **AI**")
+            st.info(results["ai_analysis"]["ru"])
+            
+            ts = datetime.now().strftime("%Y%m%d_%H%M")
+            st.download_button("📊 JSON", 
+                             json.dumps(results, indent=2, ensure_ascii=False),
+                             f"fullscan_{ts}.json")
+                             
+        except Exception as e:
+            st.error(f"❌ Full scan: {e}")
+
+def lazy_fakenews(text: str):
+    """FakeNews анализ"""
+    with st.spinner("🤖 GigaChat loading..."):
+        try:
+            from gigachat import GigaChat
+            from gigachat.models import Chat
+            
+            gc = GigaChat(credentials=st.secrets.get("GIGACHAT_API_KEY") or "demo")
+            prompt = f"Analyze credibility: {text[:1500]}\nJSON only."
+            
+            chat = Chat(messages=[{"role": "user", "content": prompt}])
+            response = gc.chat(chat)
+            
+            result = response.choices[0].message.content
+            st.json(result)
+            
+        except Exception as e:
+            st.error(f"❌ FakeNews: {e}")
+
+def lazy_ai_image(image):
+    """AI image detector"""
+    with st.spinner("🤖 Transformers loading..."):
+        try:
+            from transformers import pipeline
+            detector = pipeline("image-classification", model="umm-maybe/AI-image-detector")
+            results = detector(image)
+            
+            ai_prob = max([r['score'] for r in results if 'fake' in r['label'].lower()] or [0.5])
+            st.metric("🤖 AI Prob", f"{ai_prob:.1%}")
+            st.json(results[:3])
+            
+        except Exception as e:
+            st.error(f"❌ AI Image: {e}")
+
+# ── END ───────────────────────────────────────────────────────────────────────
+st.markdown("*© WebSecAI 2026*")
