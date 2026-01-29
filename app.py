@@ -83,7 +83,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "₿ Crypto", "ℹ️ Dashboard"
 ])
 
-# TAB 1: RELIABLE FAST SCANNER (no KeyError!)
+# TAB 1: RELIABLE FAST SCANNER (использует ТВОИ сканеры!)
 with tab1:
     st.markdown("### 🔗 **OWASP Top 10 Scanner** ⚡")
     col_url, col_timeout = st.columns([3, 1])
@@ -91,84 +91,56 @@ with tab1:
     url = col_url.text_input("🎯 Target:", 
                            placeholder="https://testphp.vulnweb.com/listproducts.php?cat=1")
     
-    timeout_sec = col_timeout.slider("⏱️ Timeout", 3, 10, 5)  # Безопасный дефолт!
+    timeout_sec = col_timeout.slider("⏱️ Timeout", 3, 10, 5)
     
     if col_url.button("🚀 **SCAN NOW**", type="primary", use_container_width=True) and url:
-        with st.spinner("🔍 Professional scanning..."):
-            vulns = []
-            t0 = time.time()
-            
-            # Импорты внутри (безопасно)
-            import concurrent.futures
-            import requests
-            
-            def pro_scan(vuln_type: str) -> bool:
-                """🎯 Профессиональные детекторы."""
-                try:
-                    s = requests.Session()
-                    s.timeout = timeout_sec
-                    
-                    if vuln_type == "SQLi":
-                        # testphp точный payload
-                        r = s.get(f"{url}&id=1' OR '1'='1")
-                        return any(x in r.text.lower() for x in ["mysql", "sql", "warning"])
-                    if vuln_type == "XSS":
-                        r = s.get(f"{url}&q=<script>alert(1)</script>")
-                        return r.status_code == 200
-                    if vuln_type == "CSRF":
-                        r = s.get(url, allow_redirects=False)
-                        return r.status_code in [301, 302]
-                    if vuln_type == "SSRF":
-                        r = s.get(f"{url}&url=127.0.0.1")
-                        return r.status_code == 200
-                except:
-                    pass
-                return False
-            
-            # ⚡ Параллельно
-            scanners = ["SQLi", "XSS", "CSRF", "SSRF"]
-            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-                futures = {executor.submit(pro_scan, v): v for v in scanners}
-                for future in concurrent.futures.as_completed(futures):
-                    if future.result():
-                        vulns.append(futures[future])
-            
-            scan_time = time.time() - t0
-            
-            # 📊
-            score = max(0, 100 - len(vulns)*25)
-            col1, col2, col3 = st.columns(3)
-            col1.metric("⏱️", f"{scan_time:.1f}s")
-            col2.metric("🚨", len(vulns))
-            col3.metric("🛡️", score)
-            
-            # 📋 Результаты
-            st.markdown("### 📋 **Results**")
-            for vuln in scanners:
-                st.markdown(f"**{vuln}:** {'🔴 DETECTED' if vuln in vulns else '🟢 CLEAN'}")
-            
-            # 🛠️ Фиксы
-            st.markdown("### 🛠️ **Fixes**")
-            fixes = {
-                "SQLi": "```cursor.execute('SELECT ?', (id,))```",
-                "XSS": "```html.escape(user_input)```",
-                "CSRF": "**CSRF Tokens**",
-                "SSRF": "**URL Whitelist**"
-            }
-            for v in vulns:
-                st.code(fixes.get(v, "Fix vuln"), "python")
-            
-            # 📥 Отчёты
-            ts = datetime.now().strftime("%Y%m%d_%H%M")
-            report_en = f"""WebSecAI Report {ts}
-URL: {url}
-Vulns: {len(vulns)} ({', '.join(vulns)})
-Score: {score}/100
-Time: {scan_time:.1f}s"""
-            
-            st.download_button("📄 EN Report", report_en, f"report_{ts}.txt")
-            
-            st.success(f"✅ Scan done! {len(vulns)} vulns.")
+        with st.spinner("🔍 Scanning with real scanners..."):
+            # Импорты ТВОИХ сканеров (безопасно)
+            try:
+                from websec import full_scan
+                results = full_scan(url, timeout=float(timeout_sec))
+                st.success("✅ Scan complete!")
+                
+                # 📊 Метрики
+                vulns = results["vulnerabilities"]
+                metrics = results["metrics"]
+                col1, col2, col3 = st.columns(3)
+                col1.metric("⏱️", f"{metrics['scan_time']}s")
+                col2.metric("🚨", len(vulns))
+                col3.metric("🛡️", metrics["score"])
+                
+                # 📋 Результаты
+                st.markdown("### 📋 **Results**")
+                for vuln in ["SQLi", "XSS", "CSRF", "SSRF"]:
+                    status = "🔴 DETECTED" if vuln in vulns else "🟢 CLEAN"
+                    st.markdown(f"**{vuln}:** {status}")
+                
+                # 🤖 AI Analysis
+                st.markdown("### 🤖 **AI Analysis**")
+                col_en, col_ru = st.columns(2)
+                with col_en:
+                    st.markdown("**🇺🇸 English:**")
+                    st.info(results["ai_analysis"]["en"])
+                with col_ru:
+                    st.markdown("**🇷🇺 Русский:**")
+                    st.info(results["ai_analysis"]["ru"])
+                
+                # 📥 Отчёты (автогенерация!)
+                st.markdown("### 📥 **Reports**")
+                ts = datetime.now().strftime("%Y%m%d_%H%M")
+                st.download_button("📄 EN Report", 
+                                 open(f"reports/en_{ts}.md").read(), 
+                                 f"websec_en_{ts}.md")
+                st.download_button("📄 RU Report", 
+                                 open(f"reports/ru_{ts}.md").read(), 
+                                 f"websec_ru_{ts}.md")
+                st.download_button("📊 JSON", 
+                                 json.dumps(results, indent=2, ensure_ascii=False), 
+                                 f"websec_{ts}.json")
+                
+            except Exception as e:
+                st.error(f"❌ Scanner error: {e}")
+                st.info("🔧 Проверьте: pip install openrouter, scanners/ файлы")
 
 # TAB 2: FAKENEWS DETECTOR (Оптимизировано)
 with tab2:
