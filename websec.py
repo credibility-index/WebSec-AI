@@ -47,10 +47,7 @@ def scan_network_segmentation(url: str) -> List[str]:
 # ─── AI АНАЛИЗ ───
 
 def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
-    """
-    Анализ уязвимостей через OpenRouter (параллельно EN/RU).
-    Использует модель Gemini Flash (Free) и увеличенный таймаут.
-    """
+  
     if not vulnerabilities:
         return ("✅ System Secure. No vulnerabilities found.", 
                 "✅ Система безопасна. Уязвимостей не обнаружено.")
@@ -77,7 +74,7 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
             user_msg = f"Analyze risks: {vuln_list}" if lang == "en" else f"Анализ рисков: {vuln_list}"
             
             payload = {
-                "model": "google/gemini-2.0-flash-exp:free", # Быстрая бесплатная модель
+                "model": "mistralai/mistral-7b-instruct:free",
                 "messages": [
                     {"role": "system", "content": sys_msg},
                     {"role": "user", "content": user_msg}
