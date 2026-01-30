@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>WebSecAI – AI-Powered Security Suite 2026</title>
-  <meta name="description" content="WebSecAI: OWASP Top 10 scanner, FakeNews detector, AI image analysis, crypto wallet risks. Live Streamlit app with bilingual AI reports (EN/RU).">
+  <meta name="description" content="WebSecAI: OWASP Top 10 scanner, Browser Extension Analyzer (.crx), FakeNews detector, AI image analysis. Live Streamlit app with bilingual AI reports.">
   <style>
     body {
       margin: 0;
@@ -163,7 +163,7 @@
     }
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); /* Чуть уменьшил мин. ширину, чтобы влезало 5 */
       gap: 12px;
       margin: 24px 0;
     }
@@ -242,35 +242,40 @@
       <section>
         <h1>AI-Powered <span>WebSec Suite</span></h1>
         <p class="subtitle">
-          Comprehensive security platform with OWASP Top 10 scanning, FakeNews detection via GigaChat Pro,
-          AI-generated image analysis, and crypto wallet risk assessment. Bilingual reports (EN/RU).
+          Comprehensive security platform with OWASP Top 10 scanning, Browser Extension analysis, FakeNews detection, and AI forensics. Bilingual reports (EN/RU).
         </p>
         
         <div class="features-grid">
           <div class="feature-card">
             <span class="feature-icon">🔒</span>
-            <strong>OWASP Scanner</strong><br>
-            SQLi • XSS • CSRF • SSRF
+            <strong>Web Scan</strong><br>
+            SQLi • XSS • CSRF
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">🧩</span>
+            <strong>Extensions</strong><br>
+            CRX Drainer Check
           </div>
           <div class="feature-card">
             <span class="feature-icon">📰</span>
-            <strong>FakeNews Detector</strong><br>
-            GigaChat Pro credibility score
+            <strong>FakeNews</strong><br>
+            AI Credibility Score
           </div>
           <div class="feature-card">
             <span class="feature-icon">🖼️</span>
             <strong>AI Images</strong><br>
-            Midjourney/DALL-E detection
+            Deepfake Detect
           </div>
           <div class="feature-card">
             <span class="feature-icon">₿</span>
-            <strong>Crypto Scanner</strong><br>
-            Wallet risk analysis
+            <strong>Crypto</strong><br>
+            Wallet Risk Audit
           </div>
         </div>
 
         <ul>
-          <li>🔍 Detects OWASP Top 10 vulnerabilities with AI prioritization</li>
+          <li>🔍 Detects OWASP Top 10 vulnerabilities (SQLi, XSS, SSRF)</li>
+          <li>🧩 Scans browser extensions (.crx) for malicious code & drainers</li>
           <li>🤖 FakeNews analysis returns credibility score + risk probability</li>
           <li>🖼️ Identifies AI-generated images (Stable Diffusion, Midjourney)</li>
           <li>📊 Exports professional MD/JSON reports in English and Russian</li>
@@ -299,15 +304,15 @@
             <span class="ok">⏱️ 2.3s | 🚨 1/4 vulns | 🛡️ Score: 80/100</span>
           </div>
           <div class="scan-line">
+            <span class="prompt">🧩 Ext Scan:</span><br>
+            <span class="vuln">"🚨 MALICIOUS: wallet_drain in background.js"</span>
+          </div>
+          <div class="scan-line">
             <span class="prompt">📰 FakeNews:</span><br>
             <span class="ai">"credibility: medium, score: 65, fake_prob: 28%"</span>
           </div>
-          <div class="scan-line">
-            <span class="prompt">🖼️ AI Image:</span><br>
-            <span class="ai">"🤖 AI: 87% | 👤 Real: 13% | Verdict: AI GENERATED"</span>
-          </div>
           <div class="pill-row">
-            <div class="pill"><strong>Stack:</strong> Streamlit • GigaChat • Transformers</div>
+            <div class="pill"><strong>Stack:</strong> Streamlit • GigaChat • OpenRouter</div>
             <div class="pill"><strong>Live:</strong> <a href="https://websec-ai.streamlit.app/">websec-ai.streamlit.app</a></div>
             <div class="pill"><strong>Repo:</strong> credibility-index/WebSec-AI</div>
           </div>
@@ -322,3 +327,4 @@
   </div>
 </body>
 </html>
+
