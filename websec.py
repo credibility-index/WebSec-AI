@@ -47,7 +47,10 @@ def scan_network_segmentation(url: str) -> List[str]:
 # ─── AI АНАЛИЗ ───
 
 def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
-  
+    """
+    Анализ уязвимостей через OpenRouter (параллельно EN/RU).
+    Модель: Upstage Solar Pro 3 (Free)
+    """
     if not vulnerabilities:
         return ("✅ System Secure. No vulnerabilities found.", 
                 "✅ Система безопасна. Уязвимостей не обнаружено.")
@@ -55,40 +58,41 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
     vuln_list = ", ".join(vulnerabilities)
     api_key = os.environ.get("OPENROUTER_API_KEY")
 
-    # Если ключа нет - возвращаем простой список
     if not api_key:
         return (f"🚨 Vulns detected: {vuln_list} (AI Key Missing)", 
                 f"🚨 Обнаружено: {vuln_list} (Нет ключа AI)")
 
     try:
-        import requests # Импорт здесь для надежности
+        import requests
         headers = {
             "Authorization": f"Bearer {api_key}", 
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://websec-ai.streamlit.app", # Требование OpenRouter
+            "HTTP-Referer": "https://websec-ai.streamlit.app",
             "X-Title": "WebSecAI"
         }
         
         def ask_ai(lang):
-            sys_msg = "You are a cybersecurity expert. Short summary." if lang == "en" else "Ты эксперт по кибербезопасности. Краткое резюме."
-            user_msg = f"Analyze risks: {vuln_list}" if lang == "en" else f"Анализ рисков: {vuln_list}"
+            sys_msg = "You are a cybersecurity expert. Short professional summary." if lang == "en" else "Ты эксперт по кибербезопасности. Краткое профессиональное резюме."
+            user_msg = f"Analyze risks for: {vuln_list}" if lang == "en" else f"Анализ рисков для: {vuln_list}"
             
             payload = {
-                "model": "mistralai/mistral-7b-instruct:free",
+                # ✅ Твоя выбранная модель
+                "model": "upstage/solar-pro-3:free",
                 "messages": [
                     {"role": "system", "content": sys_msg},
                     {"role": "user", "content": user_msg}
                 ],
                 "temperature": 0.3,
-                "max_tokens": 500
+                "max_tokens": 600
             }
             
             try:
+                # Таймаут 40 секунд, так как модель мощная
                 r = requests.post(
                     "https://openrouter.ai/api/v1/chat/completions", 
                     headers=headers, 
                     json=payload, 
-                    timeout=35 # 35 секунд таймаут
+                    timeout=40 
                 )
                 
                 if r.status_code == 200:
@@ -96,19 +100,17 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
                     if 'choices' in data and data['choices']:
                         return data['choices'][0]['message']['content']
                     return "AI Empty Response"
-                elif r.status_code == 401:
-                    return "AI Key Invalid"
-                elif r.status_code == 402:
-                    return "AI Credits Exhausted (Free Tier Limit)"
+                elif r.status_code == 404:
+                    return "AI Model Not Found (Check Model ID)"
                 else:
-                    return f"AI Error {r.status_code}"
+                    return f"AI Error {r.status_code}: {r.text[:50]}"
             
             except requests.Timeout:
                 return "AI Timeout (Model Busy)"
             except Exception as e:
                 return f"AI Connection Error: {str(e)[:50]}"
 
-        # Параллельный запуск EN и RU
+        # Параллельный запуск
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             future_en = executor.submit(ask_ai, "en")
             future_ru = executor.submit(ask_ai, "ru")
@@ -117,9 +119,6 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
     except Exception as e:
         logger.error(f"AI Global Error: {e}")
         return ("AI Unavailable", "ИИ недоступен")
-
-
-
 # ─── ОТЧЕТЫ ───
 def generate_report_content(results, lang="en"):
     # (Тот же код генерации, он мгновенный)
