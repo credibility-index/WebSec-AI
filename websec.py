@@ -2,300 +2,232 @@ import os
 import json
 import time
 import logging
-import concurrent.futures
-from typing import List, Tuple, Optional, Dict, Callable
+from typing import List, Tuple, Dict, Any
 from datetime import datetime
 
 # Настройка логов
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("websec_ai")
 
-# Fallback сканеры
-def scan_sql_injection(url): return False
-def scan_xss(url): return False
-def check_csrf_protection(url): return False
-def scan_ssrf(url): return False
-def scan_network_segmentation(url): return []
+# ─── ФУНКЦИИ СКАНЕРОВ (Импорты внутри для безопасности) ───
 
-# Класс для ленивой загрузки сканеров
-class LazyScanner:
-    def __init__(self, module_name: str, func_name: str, fallback: Callable):
-        self.module_name = module_name
-        self.func_name = func_name
-        self.fallback = fallback
-        self._scanner = None
+def scan_sql_injection(url: str) -> bool:
+    try:
+        from scanners.sql_scanner import scan_sql_injection as _scan
+        return _scan(url)
+    except ImportError:
+        logger.warning("SQL scanner module not found")
+        return False
+    except Exception as e:
+        logger.error(f"SQL scan error: {e}")
+        return False
 
-    def __call__(self, *args, **kwargs):
-        if self._scanner is None:
-            try:
-                module = __import__(self.module_name, fromlist=[self.func_name])
-                self._scanner = getattr(module, self.func_name)
-                print(f"✅ {self.module_name} loaded")
-            except ImportError:
-                print(f"⚠️ {self.module_name} not found, using fallback")
-                self._scanner = self.fallback
-        return self._scanner(*args, **kwargs)
+def scan_xss(url: str) -> bool:
+    try:
+        from scanners.xss import scan_xss as _scan
+        return _scan(url)
+    except ImportError:
+        logger.warning("XSS scanner module not found")
+        return False
+    except Exception as e:
+        logger.error(f"XSS scan error: {e}")
+        return False
 
-# Ленивые загрузчики сканеров
-scan_sql_injection = LazyScanner('scanners.sql_scanner', 'scan_sql_injection', scan_sql_injection)
-scan_xss = LazyScanner('scanners.xss', 'scan_xss', scan_xss)
-check_csrf_protection = LazyScanner('scanners.csrf_scanner', 'check_csrf_protection', check_csrf_protection)
-scan_ssrf = LazyScanner('scanners.ssrf_scanner', 'scan_ssrf', scan_ssrf)
-scan_network_segmentation = LazyScanner('scanners.network_scanner', 'scan_network_segmentation', scan_network_segmentation)
+def check_csrf_protection(url: str) -> bool:
+    try:
+        from scanners.csrf_scanner import check_csrf_protection as _scan
+        return _scan(url)
+    except ImportError:
+        logger.warning("CSRF scanner module not found")
+        return False
+    except Exception as e:
+        logger.error(f"CSRF scan error: {e}")
+        return False
 
-# Конфигурация LLM
-AI_CONFIG = {
-    "model": "deepseek/deepseek-chat-v3.1:free",
-    "max_tokens": 200,
-    "temperature": 0.3,
-    "max_retries": 2,
-    "timeout": 30,
-}
+def scan_ssrf(url: str) -> bool:
+    try:
+        from scanners.ssrf_scanner import scan_ssrf as _scan
+        return _scan(url)
+    except ImportError:
+        logger.warning("SSRF scanner module not found")
+        return False
+    except Exception as e:
+        logger.error(f"SSRF scan error: {e}")
+        return False
+
+def scan_network_segmentation(url: str) -> List[str]:
+    try:
+        from scanners.network_scanner import scan_network_segmentation as _scan
+        return _scan(url)
+    except ImportError:
+        logger.warning("Network scanner module not found")
+        return []
+    except Exception as e:
+        logger.error(f"Network scan error: {e}")
+        return []
+
+# ─── AI АНАЛИЗ (OpenRouter) ───
 
 def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
     if not vulnerabilities:
-        return ("✅ Clean scan", "✅ Чистая проверка")
+        return (
+            "✅ System appears secure based on automated scans. No critical vulnerabilities detected.",
+            "✅ Система выглядит безопасной по результатам автоматического сканирования. Критических уязвимостей не найдено."
+        )
 
     vuln_list = ", ".join(vulnerabilities)
     api_key = os.environ.get("OPENROUTER_API_KEY")
+
     if not api_key:
-        logger.warning("OPENROUTER_API_KEY not set, using fallback")
         return (
-            f"🚨 Risks: {vuln_list}. Fix immediately!",
-            f"🚨 Риски: {vuln_list}. Срочно исправьте!"
+            f"🚨 Detected Vulnerabilities: {vuln_list}. Please verify manually and patch immediately.",
+            f"🚨 Обнаружены уязвимости: {vuln_list}. Пожалуйста, проверьте вручную и немедленно исправьте."
         )
 
-    for attempt in range(AI_CONFIG["max_retries"] + 1):
-        try:
-            from openrouter import OpenRouter
-            client = OpenRouter(api_key=api_key)
-
-            # EN: анализ
-            response = client.chat.send(
-                model=AI_CONFIG["model"],
-                messages=[
-                    {"role": "system", "content": "You are a security engineer. Analyze web vulnerabilities and return one short paragraph with impact level and concrete remediation advice."},
-                    {"role": "user", "content": f"Analyze detected vulnerabilities: {vuln_list}. Output only: 1–2 sentences starting with '🚨 Risks detected'."}
-                ],
-                max_tokens=AI_CONFIG["max_tokens"],
-                temperature=AI_CONFIG["temperature"],
-                timeout=AI_CONFIG["timeout"]
-            )
-            en_text = (response.choices[0].message.content or "").strip()
-            if not en_text:
-                en_text = f"🚨 Risks: {vuln_list}. Fix immediately!"
-
-            # RU: анализ
-            response = client.chat.send(
-                model=AI_CONFIG["model"],
-                messages=[
-                    {"role": "system", "content": "Вы — эксперт в ИБ. Проанализируйте веб‑уязвимости и дайте краткую оценку риска и рекомендации по исправлению."},
-                    {"role": "user", "content": f"Уязвимости: {vuln_list}. Сформулируйте 1–2 предложения, начинающихся с «🚨 Риски найдены»."}
-                ],
-                max_tokens=AI_CONFIG["max_tokens"],
-                temperature=AI_CONFIG["temperature"],
-                timeout=AI_CONFIG["timeout"]
-            )
-            ru_text = (response.choices[0].message.content or "").strip()
-            if not ru_text:
-                ru_text = f"🚨 Риски: {vuln_list}. Срочно исправьте!"
-
-            return (en_text, ru_text)
-
-        except Exception as e:
-            logger.warning(f"Attempt {attempt + 1} failed: {e}")
-            if attempt < AI_CONFIG["max_retries"]:
-                time.sleep(2 ** attempt)
-            else:
-                logger.error("All OpenRouter attempts failed, using fallback")
-                return (
-                    f"⚠️ Could not contact AI; detected: {vuln_list}. Check manually.",
-                    f"⚠️ Не удалось подключиться к ИИ; обнаружены: {vuln_list}. Проверьте вручную."
-                )
-
-    return (
-        f"⚠️ LLM error: {vuln_list}. Check manually.",
-        f"⚠️ Ошибка ИИ: {vuln_list}. Проверьте вручную."
-    )
-
-def scan_single(url: str, scanner_name: str, scanner_func: Callable, timeout: float = 4.0):
-    """Запуск одного сканера для кнопки"""
-    print(f"🔍 {scanner_name}: {url}")
     try:
-        detected = scanner_func(url)
-        status = '🟡 HIT' if detected else '🟢 OK'
-        print(f"  {scanner_name}: {status}")
-        return detected
+        import requests
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://websec-ai.streamlit.app",
+            "X-Title": "WebSecAI"
+        }
+        
+        # Запрос для EN
+        payload_en = {
+            "model": "deepseek/deepseek-chat-v3.1:free",
+            "messages": [
+                {"role": "system", "content": "You are a senior security engineer. Provide a concise technical summary of risks and remediation steps."},
+                {"role": "user", "content": f"Analyze these web vulnerabilities: {vuln_list}. Return 3-4 sentences."}
+            ]
+        }
+        resp_en = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload_en, timeout=10)
+        en_text = resp_en.json()['choices'][0]['message']['content'] if resp_en.status_code == 200 else f"API Error: {resp_en.status_code}"
+
+        # Запрос для RU
+        payload_ru = {
+            "model": "deepseek/deepseek-chat-v3.1:free",
+            "messages": [
+                {"role": "system", "content": "Ты эксперт по кибербезопасности. Дай краткое техническое резюме рисков и шагов по исправлению."},
+                {"role": "user", "content": f"Проанализируй эти веб-уязвимости: {vuln_list}. Максимум 3-4 предложения на русском."}
+            ]
+        }
+        resp_ru = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload_ru, timeout=10)
+        ru_text = resp_ru.json()['choices'][0]['message']['content'] if resp_ru.status_code == 200 else f"API Error: {resp_ru.status_code}"
+
+        return en_text, ru_text
+
     except Exception as e:
-        print(f"  {scanner_name}: ⏱️ Timeout (or error: {e})")
-        return False
+        logger.error(f"AI Analysis error: {e}")
+        return (f"⚠️ AI Error: {vuln_list}", f"⚠️ Ошибка ИИ: {vuln_list}")
 
-def full_scan(url: str, timeout: float = 4.0, max_workers: int = 4) -> Dict:
-    print(f"🔍 Scanning {url}...")
-    results = {
-        "timestamp": datetime.now().isoformat(),
-        "target": url,
-        "vulnerabilities": [],
-        "metrics": {}
-    }
 
-    t0 = time.time()
-    scanners = [
-        ("SQLi", scan_sql_injection, [url]),
-        ("XSS", scan_xss, [url]),
-        ("CSRF", check_csrf_protection, [url]),
-        ("SSRF", scan_ssrf, [url]),
-        ("Network", scan_network_segmentation, [url])  # ✅ Добавлен Network
-    ]
+# ─── ГЕНЕРАЦИЯ ОТЧЕТОВ ───
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(func, *args): name for name, func, args in scanners}
-        for future in concurrent.futures.as_completed(futures):
-            name = futures[future]
-            try:
-                detected = future.result(timeout=timeout)
-                if detected:
-                    results["vulnerabilities"].append(name)
-                print(f"  {name}: {'🟡 HIT' if detected else '🟢 OK'}")
-            except Exception as e:
-                print(f"  {name}: ⏱️ Timeout (or error: {e})")
-
-    scan_time = time.time() - t0
-    results["metrics"] = {
-        "scan_time": round(scan_time, 1),
-        "vuln_count": len(results["vulnerabilities"]),
-        "score": max(0, 100 - len(results["vulnerabilities"]) * 25)
-    }
-
-    results["ai_analysis"] = {"en": "", "ru": ""}
-    results["ai_analysis"]["en"], results["ai_analysis"]["ru"] = ai_analysis(results["vulnerabilities"])
-    return results
-
-def generate_reports(results: Dict) -> None:
-    ts = datetime.now().strftime("%Y%m%d_%H%M")
-    os.makedirs("reports", exist_ok=True)
-
+def generate_report_content(results: Dict[str, Any], lang: str = "en") -> str:
+    """Генерирует Markdown контент для отчета"""
+    
+    timestamp = results["timestamp"]
+    target = results["target"]
+    score = results["metrics"]["score"]
     vulns = results["vulnerabilities"]
-    metrics = results["metrics"]
-
-    en_md = f"""# WebSecAI Report
-Target: {results["target"]}
-Vulns: {len(vulns)} | Score: {metrics["score"]}/100
-
-AI: {results["ai_analysis"]["en"]}"""
-
-    ru_md = f"""# Отчёт WebSecAI
-Цель: {results["target"]}
-Уязвимостей: {len(vulns)} | Оценка: {metrics["score"]}/100
-
-AI: {results["ai_analysis"]["ru"]}"""
-
-    txt = f"WebSecAI {ts}\nTarget: {results['target']}\nVulns: {len(vulns)}\n{results['ai_analysis']['ru']}"
-
-    with open(f"reports/en_{ts}.md", "w", encoding="utf-8") as f:
-        f.write(en_md)
-    with open(f"reports/ru_{ts}.md", "w", encoding="utf-8") as f:
-        f.write(ru_md)
-    with open(f"reports/report_{ts}.json", "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
-    with open(f"reports/txt_{ts}.txt", "w", encoding="utf-8") as f:
-        f.write(txt)
-
-    print(f"✅ Reports: en/ru_{ts}.md + json/txt")
-
-def scanner_menu(url: str):
-    """Меню с кнопками для каждого сканера"""
-    print(f"\n🛡️ WebSecAI Scanner Menu")
-    print(f"Target: {url}")
-    print("-" * 50)
+    ai_text = results["ai_analysis"][lang]
     
-    all_results = []
-    
-    # Кнопки для каждого сканера
-    print("\n1. Запустить SQLi сканер")
-    choice = input("Нажмите Enter для запуска или 's' для пропуска: ")
-    if choice.lower() != 's':
-        detected = scan_single(url, "SQLi", scan_sql_injection)
-        all_results.append(("SQLi", detected))
-    
-    print("\n2. Запустить XSS сканер")
-    choice = input("Нажмите Enter для запуска или 's' для пропуска: ")
-    if choice.lower() != 's':
-        detected = scan_single(url, "XSS", scan_xss)
-        all_results.append(("XSS", detected))
-    
-    print("\n3. Запустить CSRF сканер")
-    choice = input("Нажмите Enter для запуска или 's' для пропуска: ")
-    if choice.lower() != 's':
-        detected = scan_single(url, "CSRF", check_csrf_protection)
-        all_results.append(("CSRF", detected))
-    
-    print("\n4. Запустить SSRF сканер")
-    choice = input("Нажмите Enter для запуска или 's' для пропуска: ")
-    if choice.lower() != 's':
-        detected = scan_single(url, "SSRF", scan_ssrf)
-        all_results.append(("SSRF", detected))
-    
-    print("\n5. Запустить Network сканер")
-    choice = input("Нажмите Enter для запуска или 's' для пропуска: ")
-    if choice.lower() != 's':
-        detected = scan_single(url, "Network", scan_network_segmentation)
-        all_results.append(("Network", detected))
-    
-    # Подсчет результатов
-    vulns = [name for name, detected in all_results if detected]
-    print(f"\n📊 ИТОГО: {len(vulns)} уязвимостей из {len(all_results)} проверок")
+    if lang == "ru":
+        title = "🛡️ WebSecAI: Отчет о Безопасности"
+        scan_summary = "Сводка Сканирования"
+        target_lbl = "Цель"
+        date_lbl = "Дата"
+        score_lbl = "Оценка Безопасности"
+        vuln_found_lbl = "Обнаруженные Уязвимости"
+        no_vuln_lbl = "✅ Критических уязвимостей не найдено."
+        ai_lbl = "🧠 Анализ ИИ (Рекомендации)"
+        footer = "Сгенерировано WebSecAI Suite 2026"
+        status_risk = "КРИТИЧЕСКИЙ РИСК" if score < 50 else "ТРЕБУЕТ ВНИМАНИЯ" if score < 80 else "БЕЗОПАСНО"
+    else:
+        title = "🛡️ WebSecAI: Security Audit Report"
+        scan_summary = "Scan Summary"
+        target_lbl = "Target"
+        date_lbl = "Date"
+        score_lbl = "Security Score"
+        vuln_found_lbl = "Detected Vulnerabilities"
+        no_vuln_lbl = "✅ No critical vulnerabilities detected."
+        ai_lbl = "🧠 AI Analysis & Remediation"
+        footer = "Generated by WebSecAI Suite 2026"
+        status_risk = "CRITICAL RISK" if score < 50 else "NEEDS ATTENTION" if score < 80 else "SECURE"
+
+    # Формируем Markdown
+    md = f"""# {title}
+
+## {scan_summary}
+- **{target_lbl}:** `{target}`
+- **{date_lbl}:** {timestamp}
+- **{score_lbl}:** {score}/100 ({status_risk})
+
+---
+
+## {vuln_found_lbl}
+"""
     
     if vulns:
-        results = {
-            "vulnerabilities": vulns,
-            "target": url,
-            "timestamp": datetime.now().isoformat()
+        for v in vulns:
+            md += f"- 🔴 **{v}**\n"
+    else:
+        md += f"{no_vuln_lbl}\n"
+
+    md += f"""
+---
+
+## {ai_lbl}
+{ai_text}
+
+---
+*{footer}*
+"""
+    return md
+
+
+# ─── ФУНКЦИЯ ПОЛНОГО СКАНА ───
+
+def full_scan(url: str, timeout: float = 5.0) -> Dict[str, Any]:
+    t0 = time.time()
+    vulns = []
+    
+    if scan_sql_injection(url): vulns.append("SQL Injection")
+    if scan_xss(url): vulns.append("XSS")
+    if check_csrf_protection(url): vulns.append("CSRF Missing")
+    if scan_ssrf(url): vulns.append("SSRF")
+    
+    net_issues = scan_network_segmentation(url)
+    if net_issues: vulns.extend(net_issues)
+
+    scan_time = round(time.time() - t0, 2)
+    ai_en, ai_ru = ai_analysis(vulns)
+
+    results = {
+        "target": url,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "vulnerabilities": vulns,
+        "metrics": {
+            "scan_time": scan_time,
+            "vuln_count": len(vulns),
+            "score": max(0, 100 - len(vulns) * 20)
+        },
+        "ai_analysis": {
+            "en": ai_en,
+            "ru": ai_ru
         }
-        results["ai_analysis"] = {"en": "", "ru": ""}
-        results["ai_analysis"]["en"], results["ai_analysis"]["ru"] = ai_analysis(vulns)
-        print(results["ai_analysis"]["ru"])
-        generate_reports(results)
-
-def main():
-    print("🛡️ WebSecAI v2.1 - Lazy Loading + Individual Scanners")
-    while True:
-        print("\nВыберите режим:")
-        print("1. Меню сканеров (по кнопкам)")
-        print("2. Полный скан")
-        print("0. Выход")
-        
-        choice = input("Ваш выбор: ").strip()
-        if choice == '0':
-            break
-        elif choice == '1':
-            url = input("URL: ")
-            scanner_menu(url)
-        elif choice == '2':
-            url = input("URL: ")
-            results = full_scan(url)
-            generate_reports(results)
-        else:
-            print("Неверный выбор")
-def export_for_streamlit():
-    """Экспорт для app.py"""
-    return {
-        'full_scan': full_scan,
-        'scan_single': scan_single,
-        'ai_analysis': ai_analysis,
-        'scan_sql_injection': scan_sql_injection,
-        'scan_xss': scan_xss,
-        'check_csrf_protection': check_csrf_protection,
-        'scan_ssrf': scan_ssrf,
-        'scan_network_segmentation': scan_network_segmentation
     }
-
-# Автоматический экспорт
-globals().update(export_for_streamlit())
+    
+    # Генерируем тексты отчетов сразу, чтобы app.py их просто взял
+    results["reports"] = {
+        "en_md": generate_report_content(results, "en"),
+        "ru_md": generate_report_content(results, "ru")
+    }
+    
+    return results
 
 if __name__ == "__main__":
-    main()
-
-
-
-
+    print("Testing WebSec Report Gen...")
+    r = full_scan("http://testphp.vulnweb.com")
+    print(r["reports"]["en_md"])
