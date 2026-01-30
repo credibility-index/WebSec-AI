@@ -47,44 +47,80 @@ def scan_network_segmentation(url: str) -> List[str]:
 # ─── AI АНАЛИЗ ───
 
 def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
-    # ... (код AI анализа такой же, он быстрый, если OpenRouter не тупит) ...
-    # Если OpenRouter тормозит, тут ничего не поделаешь, это внешнее API.
-    # Но мы можем сократить промпт, чтобы он быстрее думал.
-    
+    """
+    Анализ уязвимостей через OpenRouter (параллельно EN/RU).
+    Использует модель Gemini Flash (Free) и увеличенный таймаут.
+    """
     if not vulnerabilities:
-        return ("✅ System Secure.", "✅ Система безопасна.")
+        return ("✅ System Secure. No vulnerabilities found.", 
+                "✅ Система безопасна. Уязвимостей не обнаружено.")
 
     vuln_list = ", ".join(vulnerabilities)
     api_key = os.environ.get("OPENROUTER_API_KEY")
 
+    # Если ключа нет - возвращаем простой список
     if not api_key:
-        return (f"🚨 Vulns: {vuln_list}", f"🚨 Уязвимости: {vuln_list}")
+        return (f"🚨 Vulns detected: {vuln_list} (AI Key Missing)", 
+                f"🚨 Обнаружено: {vuln_list} (Нет ключа AI)")
 
     try:
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        import requests # Импорт здесь для надежности
+        headers = {
+            "Authorization": f"Bearer {api_key}", 
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://websec-ai.streamlit.app", # Требование OpenRouter
+            "X-Title": "WebSecAI"
+        }
         
-        # Функция для параллельного запроса к AI (RU и EN одновременно)
         def ask_ai(lang):
-            sys_msg = "Expert summary." if lang == "en" else "Краткое резюме."
-            user_msg = f"Risks of {vuln_list}?" if lang == "en" else f"Риски {vuln_list}?"
+            sys_msg = "You are a cybersecurity expert. Short summary." if lang == "en" else "Ты эксперт по кибербезопасности. Краткое резюме."
+            user_msg = f"Analyze risks: {vuln_list}" if lang == "en" else f"Анализ рисков: {vuln_list}"
+            
             payload = {
-                "model": "deepseek/deepseek-chat-v3.1:free",
-                "messages": [{"role": "system", "content": sys_msg}, {"role": "user", "content": user_msg}]
+                "model": "google/gemini-2.0-flash-exp:free", # Быстрая бесплатная модель
+                "messages": [
+                    {"role": "system", "content": sys_msg},
+                    {"role": "user", "content": user_msg}
+                ],
+                "temperature": 0.3,
+                "max_tokens": 500
             }
+            
             try:
-                r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=8)
-                return r.json()['choices'][0]['message']['content']
-            except:
-                return "AI Timeout"
+                r = requests.post(
+                    "https://openrouter.ai/api/v1/chat/completions", 
+                    headers=headers, 
+                    json=payload, 
+                    timeout=35 # 35 секунд таймаут
+                )
+                
+                if r.status_code == 200:
+                    data = r.json()
+                    if 'choices' in data and data['choices']:
+                        return data['choices'][0]['message']['content']
+                    return "AI Empty Response"
+                elif r.status_code == 401:
+                    return "AI Key Invalid"
+                elif r.status_code == 402:
+                    return "AI Credits Exhausted (Free Tier Limit)"
+                else:
+                    return f"AI Error {r.status_code}"
+            
+            except requests.Timeout:
+                return "AI Timeout (Model Busy)"
+            except Exception as e:
+                return f"AI Connection Error: {str(e)[:50]}"
 
-        # Запускаем оба запроса к AI одновременно!
+        # Параллельный запуск EN и RU
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             future_en = executor.submit(ask_ai, "en")
             future_ru = executor.submit(ask_ai, "ru")
             return future_en.result(), future_ru.result()
 
-    except Exception:
-        return ("AI Error", "Ошибка ИИ")
+    except Exception as e:
+        logger.error(f"AI Global Error: {e}")
+        return ("AI Unavailable", "ИИ недоступен")
+
 
 
 # ─── ОТЧЕТЫ ───
