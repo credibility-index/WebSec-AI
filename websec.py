@@ -1,4 +1,5 @@
 import os
+import requests
 import json
 import time
 import logging
@@ -60,7 +61,6 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
         return (f"🚨 Vulns: {vuln_list}", f"🚨 Уязвимости: {vuln_list}")
 
     try:
-        import requests
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         
         # Функция для параллельного запроса к AI (RU и EN одновременно)
