@@ -45,8 +45,8 @@ def scan_network_segmentation(url: str) -> List[str]:
 # ─── AI АНАЛИЗ (Исправлено, без reasoning) ───
 def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
     """
-    Анализ уязвимостей через OpenRouter с резервным каналом.
-    Основная: Upstage Solar Pro 3 (Free)
+    Анализ уязвимостей через OpenRouter.
+    Основная: Arcee Trinity Large Preview (Free)
     Резерв: Meta Llama 3 8B (Free)
     """
     if not vulnerabilities:
@@ -61,6 +61,7 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
                 f"🚨 Обнаружено: {vuln_list} (Нет ключа AI)")
 
     try:
+        import requests
         headers = {
             "Authorization": f"Bearer {api_key}", 
             "Content-Type": "application/json",
@@ -72,8 +73,11 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
             sys_msg = "You are a cybersecurity expert. Short professional summary." if lang == "en" else "Ты эксперт по кибербезопасности. Краткое профессиональное резюме."
             user_msg = f"Analyze risks for: {vuln_list}" if lang == "en" else f"Анализ рисков для: {vuln_list}"
             
-            # Список моделей для перебора (основная -> резервная)
-            models = ["upstage/solar-pro-3:free", "meta-llama/llama-3-8b-instruct:free"]
+            # Модели для перебора
+            models = [
+                "arcee-ai/trinity-large-preview:free",  # 🆕 Твой выбор (Мощная!)
+                "meta-llama/llama-3-8b-instruct:free"   # Резерв (Стабильная)
+            ]
             
             for model in models:
                 payload = {
@@ -87,11 +91,12 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
                 }
                 
                 try:
+                    # Таймаут 45 секунд (Trinity большая, может думать долго)
                     r = requests.post(
                         "https://openrouter.ai/api/v1/chat/completions", 
                         headers=headers, 
                         json=payload, 
-                        timeout=35 
+                        timeout=45 
                     )
                     
                     if r.status_code == 200:
@@ -99,7 +104,6 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
                         if 'choices' in data and data['choices']:
                             return data['choices'][0]['message']['content']
                     
-                    # Если ошибка 404/500 - пробуем следующую модель
                     logger.warning(f"AI Model {model} failed: {r.status_code}")
                     continue 
 
@@ -121,7 +125,6 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
     except Exception as e:
         logger.error(f"AI Global Error: {e}")
         return ("AI Unavailable", "ИИ недоступен")
-
 
 # ─── ОТЧЕТЫ ───
 def generate_report_content(results, lang="en"):
