@@ -1,9 +1,9 @@
 import os
-import requests
 import json
 import time
 import logging
-import concurrent.futures  # <--- Добавили для скорости
+import requests
+import concurrent.futures
 from typing import List, Tuple, Dict, Any
 from datetime import datetime
 
@@ -12,8 +12,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("websec_ai")
 
 # ─── ФУНКЦИИ СКАНЕРОВ ───
-# (Они остались такими же, но я их свернул для краткости)
-
 def scan_sql_injection(url: str) -> bool:
     try:
         from scanners.sql_scanner import scan_sql_injection as _scan
@@ -44,8 +42,7 @@ def scan_network_segmentation(url: str) -> List[str]:
         return _scan(url)
     except: return []
 
-# ─── AI АНАЛИЗ ───
-
+# ─── AI АНАЛИЗ (Исправлено, без reasoning) ───
 def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
     """
     Анализ уязвимостей через OpenRouter (параллельно EN/RU).
@@ -63,7 +60,6 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
                 f"🚨 Обнаружено: {vuln_list} (Нет ключа AI)")
 
     try:
-        import requests
         headers = {
             "Authorization": f"Bearer {api_key}", 
             "Content-Type": "application/json",
@@ -75,19 +71,19 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
             sys_msg = "You are a cybersecurity expert. Short professional summary." if lang == "en" else "Ты эксперт по кибербезопасности. Краткое профессиональное резюме."
             user_msg = f"Analyze risks for: {vuln_list}" if lang == "en" else f"Анализ рисков для: {vuln_list}"
             
+            # Стандартный payload без reasoning
             payload = {
-                # ✅ Твоя выбранная модель
                 "model": "upstage/solar-pro-3:free",
                 "messages": [
                     {"role": "system", "content": sys_msg},
                     {"role": "user", "content": user_msg}
                 ],
                 "temperature": 0.3,
-                "max_tokens": 600
+                "max_tokens": 800
             }
             
             try:
-                # Таймаут 40 секунд, так как модель мощная
+                # Таймаут 40 секунд для надежности
                 r = requests.post(
                     "https://openrouter.ai/api/v1/chat/completions", 
                     headers=headers, 
@@ -119,9 +115,9 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
     except Exception as e:
         logger.error(f"AI Global Error: {e}")
         return ("AI Unavailable", "ИИ недоступен")
+
 # ─── ОТЧЕТЫ ───
 def generate_report_content(results, lang="en"):
-    # (Тот же код генерации, он мгновенный)
     timestamp = results["timestamp"]
     target = results["target"]
     vulns = results["vulnerabilities"]
@@ -140,21 +136,17 @@ def generate_report_content(results, lang="en"):
     return md
 
 # ─── БЫСТРЫЙ ПОЛНЫЙ СКАН ───
-
 def full_scan(url: str, timeout: float = 5.0) -> Dict[str, Any]:
     t0 = time.time()
     vulns = []
     
-    # 🚀 ПАРАЛЛЕЛЬНЫЙ ЗАПУСК СКАНЕРОВ
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        # Запускаем задачи
         f_sql = executor.submit(scan_sql_injection, url)
         f_xss = executor.submit(scan_xss, url)
         f_csrf = executor.submit(check_csrf_protection, url)
         f_ssrf = executor.submit(scan_ssrf, url)
         f_net = executor.submit(scan_network_segmentation, url)
         
-        # Собираем результаты (ждем не больше timeout)
         if f_sql.result(): vulns.append("SQL Injection")
         if f_xss.result(): vulns.append("XSS")
         if f_csrf.result(): vulns.append("CSRF Missing")
@@ -164,8 +156,6 @@ def full_scan(url: str, timeout: float = 5.0) -> Dict[str, Any]:
         if net_res: vulns.extend(net_res)
 
     scan_time = round(time.time() - t0, 2)
-    
-    # AI теперь тоже быстрый (параллельный)
     ai_en, ai_ru = ai_analysis(vulns)
 
     results = {
@@ -184,9 +174,6 @@ def full_scan(url: str, timeout: float = 5.0) -> Dict[str, Any]:
     return results
 
 def scan_extension(file_obj) -> Dict[str, Any]:
-    """
-    Обертка для сканирования CRX/ZIP расширений.
-    """
     try:
         from scanners.extension_scanner import scan_crx_file
         return scan_crx_file(file_obj)
@@ -196,3 +183,6 @@ def scan_extension(file_obj) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Extension scan error: {e}")
         return {'critical': 0, 'high': 0, 'threats': [f"Error: {e}"]}
+
+if __name__ == "__main__":
+    print("WebSecAI Core Module Loaded")
