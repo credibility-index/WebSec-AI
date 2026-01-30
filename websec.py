@@ -150,3 +150,17 @@ def full_scan(url: str, timeout: float = 5.0) -> Dict[str, Any]:
     }
     
     return results
+
+def scan_extension(file_obj) -> Dict[str, Any]:
+    """
+    Обертка для сканирования CRX/ZIP расширений.
+    """
+    try:
+        from scanners.extension_scanner import scan_crx_file
+        return scan_crx_file(file_obj)
+    except ImportError:
+        logger.warning("Extension scanner module not found")
+        return {'critical': 0, 'high': 0, 'threats': ["Module not installed"]}
+    except Exception as e:
+        logger.error(f"Extension scan error: {e}")
+        return {'critical': 0, 'high': 0, 'threats': [f"Error: {e}"]}
