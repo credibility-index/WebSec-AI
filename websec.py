@@ -45,8 +45,9 @@ def scan_network_segmentation(url: str) -> List[str]:
 # ─── AI АНАЛИЗ (Исправлено, без reasoning) ───
 def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
     """
-    Анализ уязвимостей через OpenRouter (параллельно EN/RU).
-    Модель: Upstage Solar Pro 3 (Free)
+    Анализ уязвимостей через OpenRouter с резервным каналом.
+    Основная: Upstage Solar Pro 3 (Free)
+    Резерв: Meta Llama 3 8B (Free)
     """
     if not vulnerabilities:
         return ("✅ System Secure. No vulnerabilities found.", 
@@ -71,40 +72,45 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
             sys_msg = "You are a cybersecurity expert. Short professional summary." if lang == "en" else "Ты эксперт по кибербезопасности. Краткое профессиональное резюме."
             user_msg = f"Analyze risks for: {vuln_list}" if lang == "en" else f"Анализ рисков для: {vuln_list}"
             
-            # Стандартный payload без reasoning
-            payload = {
-                "model": "upstage/solar-pro-3:free",
-                "messages": [
-                    {"role": "system", "content": sys_msg},
-                    {"role": "user", "content": user_msg}
-                ],
-                "temperature": 0.3,
-                "max_tokens": 800
-            }
+            # Список моделей для перебора (основная -> резервная)
+            models = ["upstage/solar-pro-3:free", "meta-llama/llama-3-8b-instruct:free"]
             
-            try:
-                # Таймаут 40 секунд для надежности
-                r = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions", 
-                    headers=headers, 
-                    json=payload, 
-                    timeout=40 
-                )
+            for model in models:
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": sys_msg},
+                        {"role": "user", "content": user_msg}
+                    ],
+                    "temperature": 0.3,
+                    "max_tokens": 800
+                }
                 
-                if r.status_code == 200:
-                    data = r.json()
-                    if 'choices' in data and data['choices']:
-                        return data['choices'][0]['message']['content']
-                    return "AI Empty Response"
-                elif r.status_code == 404:
-                    return "AI Model Not Found (Check Model ID)"
-                else:
-                    return f"AI Error {r.status_code}: {r.text[:50]}"
+                try:
+                    r = requests.post(
+                        "https://openrouter.ai/api/v1/chat/completions", 
+                        headers=headers, 
+                        json=payload, 
+                        timeout=35 
+                    )
+                    
+                    if r.status_code == 200:
+                        data = r.json()
+                        if 'choices' in data and data['choices']:
+                            return data['choices'][0]['message']['content']
+                    
+                    # Если ошибка 404/500 - пробуем следующую модель
+                    logger.warning(f"AI Model {model} failed: {r.status_code}")
+                    continue 
+
+                except requests.Timeout:
+                    logger.warning(f"AI Model {model} timed out")
+                    continue
+                except Exception as e:
+                    logger.error(f"AI Error: {e}")
+                    continue
             
-            except requests.Timeout:
-                return "AI Timeout (Model Busy)"
-            except Exception as e:
-                return f"AI Connection Error: {str(e)[:50]}"
+            return "AI Unavailable (All models failed)"
 
         # Параллельный запуск
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
@@ -115,6 +121,7 @@ def ai_analysis(vulnerabilities: List[str]) -> Tuple[str, str]:
     except Exception as e:
         logger.error(f"AI Global Error: {e}")
         return ("AI Unavailable", "ИИ недоступен")
+
 
 # ─── ОТЧЕТЫ ───
 def generate_report_content(results, lang="en"):
