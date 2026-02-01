@@ -200,6 +200,15 @@ def ctf_scan(url: str, profile: str = "ctf_quick", find_flags: bool = True, time
         return full_scan(url, timeout)
 
 
+def deep_scan(url: str, max_subdomains: int = 15, max_pages_per_host: int = 8, max_urls_to_scan: int = 35, timeout: float = 90.0) -> Dict[str, Any]:
+    """Глубокий скан: поддомены + краулинг + проверка всех URL."""
+    try:
+        from modules.deep_scan import deep_scan as _deep
+        return _deep(url, max_subdomains=max_subdomains, max_pages_per_host=max_pages_per_host, max_urls_to_scan=max_urls_to_scan, timeout=timeout)
+    except ImportError:
+        return full_scan(url, timeout)
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) <= 1 or sys.argv[1] in ("-h", "--help"):
