@@ -1,3 +1,7 @@
+"""
+XSS Scanner: Reflected & DOM XSS в параметрах q, search, input, data, cat, searchFor и др.
+Проверяет GET, POST, фрагмент URL (для DOM XSS - заголовок Referer/источник).
+"""
 import requests
 from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
 import html
@@ -18,7 +22,59 @@ PARAMS = ["q", "query", "search", "id", "p", "page", "callback", "url"]
 def get_random_string(length=8):
     return ''.join(random.choices(string.ascii_letters, k=length))
 
-def scan_xss_basic(url: str):
+# Параметры для проверки (включая testphp.vulnweb.com: cat, searchFor)
+PARAMS = [
+    "q", "query", "search", "s", "searchFor", "keyword", "term",
+    "input", "data", "test", "id", "cat", "name", "value", "url",
+    "artist", "ref", "return", "redirect", "callback",
+]
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:109.0) Gecko/20100101 Firefox/121.0",
+    "Accept": "text/html,application/xhtml+xml",
+}
+
+
+def _params_from_url(url: str) -> list:
+    """Извлечь имена параметров из URL."""
+    try:
+        parsed = urlparse(url)
+        if parsed.query:
+            return list(parse_qs(parsed.query, keep_blank_values=True).keys())
+    except Exception:
+        pass
+    return []
+
+
+def _build_url(base_url: str, param: str, payload: str) -> str:
+    """Построить URL с param=payload, учитывая существующие query-параметры."""
+    parsed = urlparse(base_url)
+    base = f"{parsed.scheme or 'http'}://{parsed.netloc or ''}{parsed.path or '/'}"
+    existing = parse_qs(parsed.query, keep_blank_values=True) if parsed.query else {}
+    existing[param] = [payload]
+    query = urlencode({k: v[0] for k, v in existing.items()})
+    return f"{base}?{query}"
+
+
+def _is_reflected(payload: str, text: str) -> bool:
+    """Проверка отражения: полное, escaped или частичное."""
+    if not text:
+        return False
+    if payload in text:
+        return True
+    if html.escape(payload) in text:
+        return True
+    for sig in XSS_SIGNATURES:
+        if sig in text and any(p in payload for p in ("script", "onerror", "onload", "alert", "javascript")):
+            return True
+    return False
+
+
+def scan_xss_basic(url: str, timeout: int = 5, max_payloads: int = 6) -> list:
+    """Сканирование на reflected XSS. Early exit при первой находке."""
+    url_params = _params_from_url(url)
+    params = list(dict.fromkeys(url_params + [p for p in PARAMS if p not in url_params]))[:15]
+    payloads = XSS_PAYLOADS[:max_payloads]
     results = []
     
     # 1. Сначала проверим, жив ли сайт
@@ -71,6 +127,7 @@ def scan_xss_basic(url: str):
             # Не добавляем как 'чисто', просто пропускаем
 
     return results
+
 
 def scan_xss(url: str) -> bool:
     print(f"🔍 Starting Smart XSS scan: {url}")
