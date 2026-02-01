@@ -1,0 +1,84 @@
+scan_profiles:
+  ctf_quick:
+    modules: [flag_hunter, sqli, xss]
+    depth: 2
+    timeout: 30
+    find_flags: true
+
+  ctf_full:
+    modules: [flag_hunter, sqli, xss, ssrf, lfi, recon, crypto]
+    depth: 5
+    timeout: 300
+    find_flags: true
+    auto_exploit: false
+
+  devsecops:
+    modules: [sqli, xss, csrf, ssrf, recon]
+    depth: 3
+    timeout: 120
+    find_flags: false
+
+  stealthy:
+    modules: [flag_hunter, sqli, xss]
+    depth: 2
+    timeout: 60
+    rate_limit: "1req/5sec"
+    user_agent_rotation: true
+
+flag_patterns:
+  - "flag\\{[^}]+\\}"
+  - "ctf\\{[^}]+\\}"
+  - "CTF\\{[^}]+\\}"
+  - "RACTF\\{[^}]+\\}"
+  - "FLAG\\{[^}]+\\}"
+  - "Flag\\{[^}]+\\}"
+  - "duckerz\\{[^}]+\\}"
+  - "Duckerz\\{[^}]+\\}"
+  - "HTB\\{[^}]+\\}"
+  - "THM\\{[^}]+\\}"
+  - "picoCTF\\{[^}]+\\}"
+  - "PicoCTF\\{[^}]+\\}"
+  - "SECCON\\{[^}]+\\}"
+  - "0ctf\\{[^}]+\\}"
+  - "HITCON\\{[^}]+\\}"
+  - "key\\{[^}]+\\}"
+  - "KEY\\{[^}]+\\}"
+  - "secret\\{[^}]+\\}"
+  - "SECRET\\{[^}]+\\}"
+  - "pass\\{[^}]+\\}"
+  - "token\\{[^}]+\\}"
+  - "FLAG_[A-Za-z0-9_]{10,50}"
+  - "flag_[a-z0-9_]{10,50}"
+  - "CTF_[A-Za-z0-9_]{10,50}"
+  - "flag\\([^)]+\\)"
+  - "ctf\\([^)]+\\)"
+  - "duckerz\\([^)]+\\)"
+  - "HTB\\([^)]+\\)"
+  - "THM\\([^)]+\\)"
+  - "flag\\[[^]]+\\]"
+  - "ctf\\[[^]]+\\]"
+  - "FLAG\\[[^]]+\\]"
+  - "key\\[[^]]+\\]"
+  - "secret\\[[^]]+\\]"
+  - "flag\\<[^>]+\\>"
+  - "ctf\\<[^>]+\\>"
+  - "FLAG\\<[^>]+\\>"
+  - '[a-zA-Z0-9_]{3,30}\\s*[{\\[<(][^})\\]>]+[})\\]>]'
+  - "FLAG-[A-Za-z0-9_-]{10,60}"
+  - "flag-[a-z0-9_-]{10,60}"
+  - "CTF-[A-Za-z0-9_-]{10,60}"
+  - "[A-Za-z0-9+/]{20,80}={0,2}"
+  - "[a-fA-F0-9]{32,64}"
+  - "[A-Za-z0-9_]{20,80}"
+
+policies:
+  fail_on_critical: true
+  fail_on_high: false
+  max_secrets: 0
+  max_sast_high: 10
+
+api:
+  shodan: ""
+  securitytrails: ""
+  ctfd_url: ""
+  ctfd_token: ""
