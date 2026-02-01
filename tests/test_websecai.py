@@ -4,7 +4,6 @@ import sys
 import os
 import requests
 
-# Добавляем корень проекта в путь для импорта
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from websec import ai_analysis, client, scan_crypto_wallet

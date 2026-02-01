@@ -3,7 +3,6 @@ import re
 from bs4 import BeautifulSoup
 from lxml import html
 
-# Список названий токенов
 CSRF_NAMES = {
     "csrf_token", "_token", "csrfmiddlewaretoken", "__RequestVerificationToken",
     "authenticity_token", "anti_csrf", "token", "csrf"
@@ -15,9 +14,7 @@ def _normalize(s: str | None) -> str:
 def _extract_csrf_from_js(content: str) -> bool:
     """Ищет CSRF токены в JS коде и AJAX вызовах"""
     patterns = [
-        # Присваивание токенов
         r'(?:csrf|token|auth)[^=:]*[:=]\s*["\'][\w-]{10,}["\']',
-        # Заголовки AJAX
         r'headers\s*[:=]\s*{[^}]*x-csrf[^}]*}',
         r'meta\[name=["\']csrf-token["\']\]'
     ]
@@ -53,19 +50,16 @@ def check_forms(soup, tree) -> list:
     for idx, form in enumerate(forms, 1):
         has_token = False
         
-        # 1. Проверяем input поля
         for inp in form.find_all("input"):
             name = _normalize(inp.get("name"))
             if any(x in name for x in CSRF_NAMES):
                 has_token = True
                 break
         
-        # 2. Проверяем action формы (если это login/register - критично)
         action = _normalize(form.get("action"))
         is_sensitive = any(x in action for x in ["login", "register", "password", "account", "admin"])
         
         if not has_token and is_sensitive:
-            # 3. Последний шанс: ищем в JS внутри формы
             if _extract_csrf_from_js(str(form)):
                 has_token = True
             
@@ -82,7 +76,7 @@ def check_csrf_protection(url: str) -> bool:
     Главная функция.
     Возвращает True, если найдена УЯЗВИМОСТЬ (т.е. защиты НЕТ).
     """
-    print(f"[*] CSRF check: {url}")
+    print(f"🔍 CSRF scan: {url}")
     try:
         resp = requests.get(url, timeout=5)
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -90,9 +84,6 @@ def check_csrf_protection(url: str) -> bool:
             tree = html.fromstring(resp.text)
         except: tree = None
         
-        # 1. Глобальные проверки (Cookies, Headers, Meta, JS)
-        # Если защита реализована глобально (например, в заголовках или куках для SPA),
-        # то отдельные формы могут не иметь токенов.
         has_global_protection = (
             check_csrf_cookies(resp) or 
             check_csrf_headers(resp) or 
@@ -102,17 +93,16 @@ def check_csrf_protection(url: str) -> bool:
         
         if has_global_protection:
             print("  🟢 Global CSRF protection found (Cookies/Meta/JS)")
-            return False # Уязвимости нет
+            return False
             
-        # 2. Проверка конкретных форм (если глобальной защиты нет)
         suspicious_forms = check_forms(soup, tree)
         
         if suspicious_forms:
             print(f"  🔴 CSRF Vulnerability: {len(suspicious_forms)} forms without tokens")
-            return True # Уязвимость есть!
+            return True
             
         print("  🟢 No suspicious forms found")
-        return False # Уязвимости нет
+        return False
 
     except Exception as e:
         print(f"  ⚠️ CSRF check error: {e}")

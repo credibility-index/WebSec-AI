@@ -11,5 +11,12 @@ transformers
 torch --index-url https://download.pytorch.org/whl/cpu
 torchvision 
 pillow 
-beautifulsoup4==4.12.3  # Для crawler
+beautifulsoup4==4.12.3
 mnemonic
+# CTF / API
+pyyaml
+fastapi
+uvicorn[standard]
+aiohttp
+# PDF reports (Iceo96/Ai-agent-WebSecurity style)
+reportlab
