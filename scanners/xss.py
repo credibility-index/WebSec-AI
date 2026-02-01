@@ -3,21 +3,24 @@ XSS Scanner: Reflected & DOM XSS в параметрах q, search, input, data,
 Проверяет GET, POST, фрагмент URL (для DOM XSS - заголовок Referer/источник).
 """
 import requests
-from urllib.parse import urlencode, urlparse, parse_qs
+from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
 import html
+import random
+import string
 
-# Приоритетные payloads (наиболее эффективные первые)
+# Сокращенный список для быстрого теста, полный можно оставить
 XSS_PAYLOADS = [
     "<script>alert(1)</script>",
-    "\"><img src=x onerror=alert(1)>",
-    "<svg/onload=alert(1)>",
-    "'><script>alert(1)</script>",
-    '"/><script>alert(1)</script>',
-    "1\"><img src=x onerror=alert(1)>",  # для числовых параметров (cat, id)
+    "\" onfocus=alert(1) autofocus=",
+    "javascript:alert(1)",
+    "'><img src=x onerror=alert(1)>"
 ]
 
-# Опасные подстроки для детекции частичного отражения
-XSS_SIGNATURES = ["<script>", "onerror=", "onload=", "alert(1)", "javascript:"]
+# Параметры, которые чаще всего уязвимы
+PARAMS = ["q", "query", "search", "id", "p", "page", "callback", "url"]
+
+def get_random_string(length=8):
+    return ''.join(random.choices(string.ascii_letters, k=length))
 
 # Параметры для проверки (включая testphp.vulnweb.com: cat, searchFor)
 PARAMS = [
@@ -73,54 +76,75 @@ def scan_xss_basic(url: str, timeout: int = 5, max_payloads: int = 6) -> list:
     params = list(dict.fromkeys(url_params + [p for p in PARAMS if p not in url_params]))[:15]
     payloads = XSS_PAYLOADS[:max_payloads]
     results = []
+    
+    # 1. Сначала проверим, жив ли сайт
+    try:
+        initial_check = requests.get(url, timeout=5)
+        if initial_check.status_code in [403, 404]:
+            print(f"⚠️ Site returned {initial_check.status_code} initially. Scanning might fail.")
+    except:
+        return [{"error": "Site unreachable", "suspicious": False}]
 
-    for param in params:
-        for payload in payloads:
-            try:
-                test_url = _build_url(url, param, payload)
-                resp = requests.get(test_url, headers=HEADERS, timeout=timeout, allow_redirects=True)
-                if _is_reflected(payload, resp.text):
+    # Определяем разделитель для параметров (? или &)
+    sep = "&" if "?" in url else "?"
+
+    for param in PARAMS:
+        # 2. "Канарейка": Проверяем, отражается ли параметр вообще
+        # Не бьем сразу атакой, чтобы не получить бан
+        canary = get_random_string()
+        probe_url = f"{url}{sep}{param}={canary}"
+        
+        try:
+            resp = requests.get(probe_url, timeout=5)
+            
+            # Если нашей случайной строки нет в ответе, нет смысла атаковать этот параметр
+            if canary not in resp.text:
+                continue 
+                
+            # А вот если отразилась — тогда атакуем!
+            print(f"🔎 Param '{param}' reflects input. Testing payloads...")
+
+            for payload in XSS_PAYLOADS:
+                # Формируем атаку
+                attack_url = f"{url}{sep}{param}={payload}"
+                resp_attack = requests.get(attack_url, timeout=5)
+
+                reflected = payload in resp_attack.text
+
+                if reflected:
                     results.append({
                         "param": param,
-                        "payload": payload[:50] + ("..." if len(payload) > 50 else ""),
-                        "url": test_url,
-                        "vector": "GET",
+                        "payload": payload,
+                        "url": attack_url,
                         "suspicious": True,
+                        "type": "Reflected XSS"
                     })
-                    return results  # Early exit
+                    # Нашли одну дыру в этом параметре — хватит его мучить, идем к следующему
+                    break 
 
-                if param in ("q", "search", "searchFor", "input", "data", "query", "keyword"):
-                    base = url.split("?")[0] or url
-                    resp_post = requests.post(
-                        base, data={param: payload}, headers=HEADERS,
-                        timeout=timeout, allow_redirects=True
-                    )
-                    if _is_reflected(payload, resp_post.text):
-                        results.append({
-                            "param": param,
-                            "payload": payload[:50] + ("..." if len(payload) > 50 else ""),
-                            "url": test_url,
-                            "vector": "POST",
-                            "suspicious": True,
-                        })
-                        return results
-            except requests.RequestException:
-                continue
+        except requests.RequestException as e:
+            print(f"❌ Connection error on param {param}: {e}")
+            # Не добавляем как 'чисто', просто пропускаем
+
     return results
 
 
 def scan_xss(url: str) -> bool:
-    """WebSecAI: True если найдена XSS уязвимость."""
-    print(f"🔍 XSS scan: {url}")
-    try:
-        results = scan_xss_basic(url)
-        if results:
-            print(f"🟡 XSS found: {len(results)} vector(s)!")
-            for r in results[:3]:
-                print(f"  → {r['param']} ({r.get('vector', 'GET')}): {r['payload']}")
-            return True
-        print("🟢 XSS clean")
-        return False
-    except Exception as e:
-        print(f"  ⚠️ XSS scan error: {e}")
-        return False
+    print(f"🔍 Starting Smart XSS scan: {url}")
+    results = scan_xss_basic(url)
+    
+    # Если results пустой, но ошибок не было - значит чисто
+    # Если были ошибки connection - они просто скипнулись в коде выше
+    
+    suspicious = [r for r in results if r.get("suspicious")]
+    
+    if suspicious:
+        print(f"🚨 XSS FOUND: {len(suspicious)} vectors!")
+        for r in suspicious:
+            print(f"  → Vuln Param: {r['param']} | Payload: {r['payload']}")
+        return True
+    
+    if not results:
+        print("🟢 No reflections found (Clean)")
+    
+    return False
